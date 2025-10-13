@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Restaurant POS{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    {% block styles %}{% endblock %}
+    <style>
+        /* Ensure dark theme is applied immediately */
+        html, body {
+            background-color: #1e1e1e !important;
+            color: #ffffff !important;
+        }
+        
+        /* IMMEDIATE NAVBAR GOLD THEME - Applied instantly */
+        .navbar, .navbar-dark, .navbar-light, .navbar.bg-primary {
+            background-color: #Ffdb58 !important; /* Gold background */
+            border-bottom: 2px solid #daa520 !important; /* Darker gold border */
+        }
+        
+        /* NAVBAR TEXT - Dark text on mustard for high visibility */
+        .navbar .navbar-brand, .navbar .nav-link,
+        .navbar-dark .navbar-brand, .navbar-dark .nav-link,
+        .navbar-light .navbar-brand, .navbar-light .nav-link {
+            color: #1e1e1e !important; /* Dark text for contrast */
+            font-weight: 600 !important;
+            text-shadow: none !important;
+        }
+        
+        /* NAVBAR HOVER EFFECTS */
+        .navbar .nav-link:hover,
+        .navbar-dark .nav-link:hover, .navbar-light .nav-link:hover {
+            color: #000000 !important; /* Pure black on hover */
+            background-color: rgba(255, 219, 88, 0.3) !important;
+            border-radius: 6px !important;
+        }
+        
+        /* NAVBAR MOBILE TOGGLE */
+        .navbar-toggler {
+            border-color: #1e1e1e !important;
+        }
+        
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2830, 30, 30, 1%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='m4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+        }
+        
+        /* Ensure all containers have dark background */
+        .container, .container-fluid {
+            background-color: transparent !important;
+        }
+    </style>
+</head>
+<body class="bg-dark text-light">
+    {% block navbar %}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary collapsible-navbar">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <i class="bi bi-shop"></i> Restaurant POS
+            </a>
+            
+            {% if current_user.is_authenticated %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    {% if current_user.role.name in ['ADMIN', 'BRANCH_ADMIN'] %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.dashboard') }}">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.users') }}">
+                                <i class="bi bi-people"></i> Users
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.menu') }}">
+                                <i class="bi bi-list"></i> Menu
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.orders') }}">
+                                <i class="bi bi-receipt"></i> Orders
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.cashier_performance') }}">
+                                <i class="bi bi-person-badge"></i> Cashier Performance
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.audit_logs') }}">
+                                <i class="bi bi-journal-text"></i> Audit Logs
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.reports') }}">
+                                <i class="bi bi-graph-up"></i> Reports
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.settings') }}">
+                                <i class="bi bi-gear"></i> Settings
+                            </a>
+                        </li>
+                    {% elif current_user.role.name == 'SUPER_USER' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('superuser.dashboard') }}">
+                                <i class="bi bi-shield-check"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('superuser.branches') }}">
+                                <i class="bi bi-building"></i> Branches
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('superuser.users') }}">
+                                <i class="bi bi-people"></i> All Users
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('superuser.orders') }}">
+                                <i class="bi bi-receipt"></i> All Orders
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('superuser.cashier_performance') }}">
+                                <i class="bi bi-person-badge"></i> Cashier Performance
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('superuser.audit_logs') }}">
+                                <i class="bi bi-journal-text"></i> Audit Logs
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('superuser.reports') }}">
+                                <i class="bi bi-graph-up"></i> Reports
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('superuser.settings') }}">
+                                <i class="bi bi-gear"></i> Settings
+                            </a>
+                        </li>
+                    {% elif current_user.role.name == 'CASHIER' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('pos.index') }}">
+                                <i class="bi bi-calculator"></i> POS
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('pos.dashboard') }}">
+                                <i class="bi bi-speedometer2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('pos.waiter_requests') }}">
+                                <i class="bi bi-person-badge"></i> Waiter Requests
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('cashier.settings') }}">
+                                <i class="bi bi-gear"></i> Settings
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('pos.orders') }}">
+                                <i class="bi bi-list"></i> My Orders
+                            </a>
+                        </li>
+                    {% elif current_user.role.name == 'WAITER' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('pos.table_management') }}">
+                                <i class="bi bi-table"></i> Table Management
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('pos.index') }}">
+                                <i class="bi bi-calculator"></i> POS
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('pos.orders') }}">
+                                <i class="bi bi-list"></i> My Orders
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('pos.index') }}">
+                                <i class="bi bi-calculator"></i> POS
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+                
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-person"></i> Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" id="logoutLink" onclick="checkDailyReportBeforeLogout(event)">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+    {% endblock %}
+
+    <div class="container-fluid mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Socket.IO client for real-time features used on POS pages -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+    // Multi-cashier restaurant solution - no complex session initialization needed
+    {% if current_user.is_authenticated and current_user.role.name == 'CASHIER' %}
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Cashier {{ current_user.get_full_name() }} logged in - logout protection active');
+        // Ensure today session exists for logout protection tracking
+        fetch('/pos/ensure_cashier_session', { method: 'POST', headers: { 'Content-Type': 'application/json' }})
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) {
+                    console.warn('Could not ensure cashier session:', d.error || d);
+                }
+            })
+            .catch(err => console.warn('Ensure session call failed:', err));
+    });
+    {% endif %}
+    
+    // Logout prevention for cashiers who haven't printed daily report
+    function checkDailyReportBeforeLogout(event) {
+        event.preventDefault();
+        
+        // Only check for cashiers
+        {% if current_user.is_authenticated and current_user.role.name == 'CASHIER' %}
+        // Use server-side session tracking to check logout permission
+        fetch('/pos/check_logout_permission')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.can_logout) {
+                        // Allow logout
+                        console.log('Logout allowed:', data.reason);
+                        window.location.href = "{{ url_for('auth.logout') }}";
+                    } else {
+                        // Show enhanced modal based on action required
+                        console.log('Logout blocked:', data.reason);
+                        showEnhancedDailyReportModal(data);
+                    }
+                } else {
+                    console.error('Error checking logout permission:', data.error);
+                    // If error, allow logout as fallback
+                    window.location.href = "{{ url_for('auth.logout') }}";
+                }
+            })
+            .catch(error => {
+                console.error('Error checking logout permission:', error);
+                // If error, allow logout as fallback
+                window.location.href = "{{ url_for('auth.logout') }}";
+            });
+        {% else %}
+        // Non-cashiers can logout directly
+        window.location.href = "{{ url_for('auth.logout') }}";
+        {% endif %}
+    }
+    
+    function showEnhancedDailyReportModal(data) {
+        const actionRequired = data.action_required || 'report';
+        const unpaidOrders = data.unpaid_waiter_orders || 0;
+        
+        let modalTitle = '';
+        let modalIcon = '';
+        let modalContent = '';
+        let modalButtons = '';
+        
+        if (actionRequired === 'both') {
+            modalTitle = 'Process Waiter Orders First';
+            modalIcon = 'bi-exclamation-triangle-fill';
+            modalContent = `
+                <div class="mb-4">
+                    <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="text-danger mb-3">🚫 Cannot Generate Report Yet</h4>
+                <p class="lead mb-4">${data.reason}</p>
+                <div class="alert alert-danger">
+                    <strong>🚨 Required Sequence:</strong><br>
+                    1. <strong>FIRST:</strong> Process or transfer ${unpaidOrders} unpaid waiter orders<br>
+                    2. <strong>THEN:</strong> Generate daily report<br>
+                    3. <strong>FINALLY:</strong> Logout will be available
+                </div>
+                <div class="alert alert-warning">
+                    <strong>⚠️ Report Generation Blocked:</strong><br>
+                    You cannot generate your daily report until all waiter orders are processed or transferred.
+                </div>
+            `;
+            modalButtons = `
+                <button type="button" class="btn btn-warning btn-lg me-2" onclick="goToWaiterRequests()">
+                    <i class="bi bi-person-badge"></i> Process Waiter Orders First
+                </button>
+                <button type="button" class="btn btn-info btn-lg me-2" onclick="showTransferModal()">
+                    <i class="bi bi-arrow-right-circle"></i> Transfer Orders
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+            `;
+        } else if (actionRequired === 'waiter_orders' || actionRequired === 'waiter_orders_then_report') {
+            modalTitle = 'Unpaid Waiter Orders - Report Required After';
+            modalIcon = 'bi-person-badge';
+            modalContent = `
+                <div class="mb-4">
+                    <i class="bi bi-person-badge text-warning" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="text-warning mb-3">👥 ${unpaidOrders} Unpaid Waiter Orders</h4>
+                <p class="lead mb-4">${data.reason}</p>
+                <div class="alert alert-warning">
+                    <strong>📋 Required Steps:</strong><br>
+                    1. Process orders and mark as paid OR transfer to another cashier<br>
+                    2. Generate daily report (will be required after step 1)
+                </div>
+                <div class="alert alert-info">
+                    <strong>ℹ️ Note:</strong> After processing/transferring orders, you'll still need to generate your daily report before logout.
+                </div>
+            `;
+            modalButtons = `
+                <button type="button" class="btn btn-warning btn-lg me-2" onclick="goToWaiterRequests()">
+                    <i class="bi bi-person-badge"></i> Process Orders
+                </button>
+                <button type="button" class="btn btn-info btn-lg me-2" onclick="showTransferModal()">
+                    <i class="bi bi-arrow-right-circle"></i> Transfer Orders
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+            `;
+        } else {
+            modalTitle = 'Daily Report Required';
+            modalIcon = 'bi-file-earmark-pdf';
+            modalContent = `
+                <div class="mb-4">
+                    <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="text-danger mb-3">📊 Daily Report Required</h4>
+                <p class="lead mb-4">${data.reason}</p>
+                <div class="alert alert-info">
+                    <strong>📋 Report Includes:</strong><br>
+                    • Today's sales and orders (including waiter orders)<br>
+                    • Waiter order statistics<br>
+                    • Performance breakdown
+                </div>
+            `;
+            modalButtons = `
+                <button type="button" class="btn btn-danger btn-lg me-2" onclick="generateDailyReport()">
+                    <i class="bi bi-printer"></i> Generate Report
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+            `;
+        }
+        
+        // Create modal HTML
+        const modalHtml = `
+            <div class="modal fade" id="enhancedDailyReportModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content border-danger">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">
+                                <i class="bi ${modalIcon}"></i> ${modalTitle}
+                            </h5>
+                        </div>
+                        <div class="modal-body text-center">
+                            ${modalContent}
+                        </div>
+                        <div class="modal-footer justify-content-center">
+                            ${modalButtons}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('enhancedDailyReportModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('enhancedDailyReportModal'));
+        modal.show();
+    }
+    
+    function goToDashboard() {
+        window.location.href = "{{ url_for('pos.dashboard') }}";
+    }
+    
+    function goToWaiterRequests() {
+        window.location.href = "{{ url_for('pos.waiter_requests') }}";
+    }
+    
+    function generateDailyReport() {
+        // First check if report generation is allowed
+        fetch('/pos/check_report_generation_permission')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.can_generate_report) {
+                    // Open daily report in new tab
+                    window.open("{{ url_for('pos.daily_report') }}", '_blank');
+                    
+                    // Close modal and show success message
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('enhancedDailyReportModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    
+                    // Show success toast
+                    showToast('Daily report generated successfully! You can now logout.', 'success');
+                    
+                    // Auto-refresh logout permission after 2 seconds
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    // Report generation blocked
+                    const reason = data.reason || 'Cannot generate report at this time';
+                    showToast(reason, 'error');
+                    
+                    // If there are unpaid orders, redirect to waiter requests
+                    if (data.unpaid_waiter_orders > 0) {
+                        setTimeout(() => {
+                            window.location.href = "{{ url_for('pos.waiter_requests') }}";
+                        }, 2000);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking report permission:', error);
+                showToast('Error checking report permission', 'error');
+            });
+    }
+    
+    function showTransferModal() {
+        // First close the current modal
+        const currentModal = bootstrap.Modal.getInstance(document.getElementById('enhancedDailyReportModal'));
+        if (currentModal) {
+            currentModal.hide();
+        }
+        
+        // Load unpaid orders and cashiers
+        Promise.all([
+            fetch('/pos/get_unpaid_waiter_orders').then(r => r.json()),
+            fetch('/pos/get_branch_cashiers').then(r => r.json())
+        ]).then(([ordersData, cashiersData]) => {
+            if (ordersData.success && cashiersData.success) {
+                createTransferModal(ordersData.orders, cashiersData.cashiers);
+            } else {
+                showToast('Error loading transfer data', 'error');
+            }
+        }).catch(error => {
+            console.error('Error loading transfer data:', error);
+            showToast('Error loading transfer data', 'error');
+        });
+    }
+    
+    function createTransferModal(orders, cashiers) {
+        if (orders.length === 0) {
+            showToast('No unpaid orders to transfer', 'info');
+            return;
+        }
+        
+        if (cashiers.length === 0) {
+            showToast('No other cashiers available for transfer', 'warning');
+            return;
+        }
+        
+        // Create orders list HTML
+        const ordersHtml = orders.map(order => `
+            <div class="form-check border rounded p-3 mb-2">
+                <input class="form-check-input" type="checkbox" value="${order.id}" id="order_${order.id}">
+                <label class="form-check-label w-100" for="order_${order.id}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>#${order.order_number}</strong><br>
+                            <small class="text-muted">Table ${order.table_number} • ${order.waiter_name}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-warning">${order.total_amount} QAR</span><br>
+                            <small class="text-muted">${order.items_count} items</small>
+                        </div>
+                    </div>
+                </label>
+            </div>
+        `).join('');
+        
+        // Create cashiers dropdown HTML
+        const cashiersHtml = cashiers.map(cashier => 
+            `<option value="${cashier.id}">${cashier.name} (${cashier.username})</option>`
+        ).join('');
+        
+        const transferModalHtml = `
+            <div class="modal fade" id="transferOrdersModal" tabindex="-1" data-bs-backdrop="static">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-info text-white">
+                            <h5 class="modal-title">
+                                <i class="bi bi-arrow-right-circle"></i> Transfer Unpaid Orders
+                            </h5>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <strong>📋 Instructions:</strong><br>
+                                1. Select orders to transfer<br>
+                                2. Choose target cashier<br>
+                                3. Orders will be reassigned and logged
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6>Select Orders to Transfer:</h6>
+                                    <div class="mb-3" style="max-height: 300px; overflow-y: auto;">
+                                        <div class="mb-2">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllOrders()">
+                                                Select All
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllOrders()">
+                                                Deselect All
+                                            </button>
+                                        </div>
+                                        ${ordersHtml}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6>Transfer To:</h6>
+                                    <select class="form-select" id="targetCashier" required>
+                                        <option value="">Select Cashier...</option>
+                                        ${cashiersHtml}
+                                    </select>
+                                    
+                                    <div class="mt-3">
+                                        <div class="card">
+                                            <div class="card-body text-center">
+                                                <h6 class="card-title">Transfer Summary</h6>
+                                                <div id="transferSummary">
+                                                    <span class="text-muted">Select orders to see summary</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-success" onclick="executeTransfer()">
+                                <i class="bi bi-check-circle"></i> Transfer Orders
+                            </button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('transferOrdersModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', transferModalHtml);
+        
+        // Add event listeners for dynamic summary
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', updateTransferSummary);
+        });
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('transferOrdersModal'));
+        modal.show();
+    }
+    
+    function selectAllOrders() {
+        document.querySelectorAll('#transferOrdersModal input[type="checkbox"]').forEach(cb => {
+            cb.checked = true;
+        });
+        updateTransferSummary();
+    }
+    
+    function deselectAllOrders() {
+        document.querySelectorAll('#transferOrdersModal input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        });
+        updateTransferSummary();
+    }
+    
+    function updateTransferSummary() {
+        const selectedOrders = document.querySelectorAll('#transferOrdersModal input[type="checkbox"]:checked');
+        const summaryDiv = document.getElementById('transferSummary');
+        
+        if (selectedOrders.length === 0) {
+            summaryDiv.innerHTML = '<span class="text-muted">Select orders to see summary</span>';
+        } else {
+            summaryDiv.innerHTML = `
+                <div class="text-primary">
+                    <strong>${selectedOrders.length}</strong> orders selected
+                </div>
+            `;
+        }
+    }
+    
+    function executeTransfer() {
+        const selectedOrders = Array.from(document.querySelectorAll('#transferOrdersModal input[type="checkbox"]:checked'))
+            .map(cb => parseInt(cb.value));
+        const targetCashierId = document.getElementById('targetCashier').value;
+        
+        if (selectedOrders.length === 0) {
+            showToast('Please select at least one order to transfer', 'warning');
+            return;
+        }
+        
+        if (!targetCashierId) {
+            showToast('Please select a target cashier', 'warning');
+            return;
+        }
+        
+        // Show loading state
+        const transferBtn = document.querySelector('#transferOrdersModal .btn-success');
+        const originalText = transferBtn.innerHTML;
+        transferBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Transferring...';
+        transferBtn.disabled = true;
+        
+        // Execute transfer
+        fetch('/pos/transfer_orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                order_ids: selectedOrders,
+                target_cashier_id: parseInt(targetCashierId)
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message + ' Remember: You still need to generate your daily report before logout!', 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('transferOrdersModal'));
+                if (modal) {
+                    modal.hide();
+                }
+                
+                // Show reminder about report requirement
+                setTimeout(() => {
+                    showToast('Orders transferred successfully! Now generate your daily report to logout.', 'info');
+                }, 2000);
+                
+                // Refresh page after short delay
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+            } else {
+                showToast(data.error || 'Transfer failed', 'error');
+                transferBtn.innerHTML = originalText;
+                transferBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Transfer error:', error);
+            showToast('Transfer failed', 'error');
+            transferBtn.innerHTML = originalText;
+            transferBtn.disabled = false;
+        });
+    }
+    
+    function showToast(message, type = 'info') {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = '9999';
+            document.body.appendChild(toastContainer);
+        }
+        
+        const toastId = 'toast_' + Date.now();
+        const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : type === 'warning' ? 'bg-warning' : 'bg-info';
+        
+        const toastHtml = `
+            <div id="${toastId}" class="toast ${bgClass} text-white" role="alert">
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { delay: 4000 });
+        toast.show();
+        
+        // Remove toast element after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    }
+    
+    // Fix dropdown positioning for collapsible navbar
+    document.addEventListener('DOMContentLoaded', function() {
+        const navbar = document.querySelector('.collapsible-navbar');
+        const dropdown = document.querySelector('.collapsible-navbar .dropdown-menu');
+        
+        if (navbar && dropdown) {
+            // Ensure dropdown appears above all content
+            dropdown.style.zIndex = '10000';
+            
+            // Handle navbar hover state changes
+            navbar.addEventListener('mouseenter', function() {
+                if (dropdown.classList.contains('show')) {
+                    dropdown.style.top = '60px';
+                }
+            });
+            
+            navbar.addEventListener('mouseleave', function() {
+                if (dropdown.classList.contains('show')) {
+                    dropdown.style.top = '25px';
+                }
+            });
+        }
+    });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

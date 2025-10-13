@@ -1,0 +1,676 @@
+{% extends "base.html" %}
+
+{% block title %}Table Management - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="display-6 mb-1">
+                        <i class="bi bi-table text-primary me-2"></i>Table Management
+                    </h1>
+                    <p class="text-muted mb-0">Manage table orders and status - {{ current_user.get_full_name() }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('pos.dashboard') }}" class="btn btn-outline-primary me-2">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                    <button class="btn btn-success" id="refreshTablesBtn">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Legend -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h6 class="mb-2">Table Status Legend:</h6>
+                            <div class="d-flex flex-wrap gap-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="table-status-indicator free me-2"></div>
+                                    <span class="small">Free Tables</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <div class="table-status-indicator busy me-2"></div>
+                                    <span class="small">Busy Tables</span>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <div class="table-status-indicator pending me-2"></div>
+                                    <span class="small">Pending Payment</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="table-stats">
+                                <span class="badge bg-success me-2" id="freeTablesCount">0 Free</span>
+                                <span class="badge bg-warning" id="busyTablesCount">0 Busy</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tables Grid -->
+    <div class="row" id="tablesGrid">
+        {% for table_info in table_data %}
+        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6 mb-4">
+            <div class="table-card {% if table_info.is_busy %}busy{% else %}free{% endif %}" 
+                 data-table-id="{{ table_info.table.id }}" 
+                 data-table-number="{{ table_info.table.table_number }}">
+                <div class="card h-100 border-0 shadow-sm table-card-inner">
+                    <div class="card-body text-center p-3">
+                        <!-- Table Number -->
+                        <div class="table-number mb-2">
+                            <i class="fa-solid fa-utensils display-4 mb-2"></i>
+                            <h4 class="mb-0">Table {{ table_info.table.table_number }}</h4>
+                        </div>
+                        
+                        <!-- Table Status -->
+                        <div class="table-status mb-3">
+                            {% if table_info.is_busy %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-clock-fill me-1"></i>Busy
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle-fill me-1"></i>Free
+                                </span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Order Info (if busy) -->
+                        {% if table_info.is_busy and table_info.order_info %}
+                        <div class="order-info">
+                            <div class="small text-muted mb-1">Current Order</div>
+                            <div class="fw-bold">#{{ table_info.order_info.order_number }}</div>
+                            {% if table_info.order_info.order_counter %}
+                            <div class="small"><span class="badge bg-dark">Count #{{ table_info.order_info.order_counter }}</span></div>
+                            {% endif %}
+                            <div class="small">{{ table_info.order_info.total_amount|round(2) }} QAR</div>
+                            <div class="small text-muted">{{ table_info.order_info.items_count }} items</div>
+                            <div class="small text-muted">{{ table_info.order_info.created_at }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Action Buttons -->
+                        <div class="table-actions mt-3">
+                            {% if table_info.is_busy %}
+                                <button class="btn btn-sm btn-outline-primary view-order-btn" 
+                                        data-order-id="{{ table_info.order_info.id }}">
+                                    <i class="bi bi-eye"></i> View Order
+                                </button>
+                                <a href="{{ url_for('pos.index') }}?table_id={{ table_info.table.id }}&return_to=table_management&add_items=true" 
+                                   class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-plus-circle"></i> Add Items
+                                </a>
+                            {% else %}
+                                <a href="{{ url_for('pos.index') }}?table_id={{ table_info.table.id }}&return_to=table_management&new_order=true" 
+                                   class="btn btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Take Order
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="orderDetailsModalLabel">
+                    <i class="bi bi-receipt me-2"></i>Order Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="orderDetailsContent">
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <span class="ms-2">Loading order details...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-1"></i>Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Table Management Styles */
+.table-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.table-card.free .table-card-inner {
+    border-left: 4px solid #28a745;
+    background: linear-gradient(135deg, #f8fff9 0%, #ffffff 100%);
+}
+
+.table-card.busy .table-card-inner {
+    border-left: 4px solid #ffc107;
+    background: linear-gradient(135deg, #fffbf0 0%, #ffffff 100%);
+}
+
+.table-card:hover .table-card-inner {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+.table-number i {
+    color: #6c757d;
+    transition: color 0.3s ease;
+}
+
+.table-card.free:hover .table-number i {
+    color: #28a745;
+}
+
+.table-card.busy:hover .table-number i {
+    color: #ffc107;
+}
+
+.table-status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.table-status-indicator.free {
+    background-color: #28a745;
+}
+
+.table-status-indicator.busy {
+    background-color: #ffc107;
+}
+
+.table-status-indicator.pending {
+    background-color: #dc3545;
+}
+
+.order-info {
+    background: rgba(0,0,0,0.05);
+    border-radius: 8px;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.table-actions .btn {
+    margin: 2px;
+}
+
+/* Animations */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.table-card.busy .table-card-inner {
+    animation: pulse 2s infinite;
+}
+
+/* Edit marker styles */
+.edit-marker .badge {
+    animation: editPulse 2s infinite;
+}
+
+@keyframes editPulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+}
+
+.table-card.order-edited .table-card-inner {
+    animation: editNotification 3s ease-in-out;
+}
+
+@keyframes editNotification {
+    0% { transform: scale(1); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    25% { transform: scale(1.05); box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3); }
+    50% { transform: scale(1.02); box-shadow: 0 8px 25px rgba(255, 193, 7, 0.2); }
+    75% { transform: scale(1.05); box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3); }
+    100% { transform: scale(1); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-card {
+        margin-bottom: 1rem;
+    }
+    
+    .table-number h4 {
+        font-size: 1.1rem;
+    }
+    
+    .table-number i {
+        font-size: 2rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Socket.IO for real-time updates
+    const socket = io();
+    
+    // Store branch ID for JavaScript comparisons
+    const currentBranchId = {{ current_user.branch_id }};
+    
+    // Join branch room for real-time updates
+    socket.emit('join', {room: 'branch_{{ current_user.branch_id }}'});
+    
+    // Listen for order paid events to update table status
+    socket.on('order_paid', function(data) {
+        console.log('Order paid event received:', data);
+        
+        // Check if this affects our branch
+        if (data.branch_id === currentBranchId) {
+            updateTableStatus(data.table_id, data.table_number, 'free');
+        }
+    });
+    
+    // Listen for table status updates (new orders making tables busy)
+    socket.on('table_status_update', function(data) {
+        console.log('Table status update event received:', data);
+        
+        // Check if this affects our branch
+        if (data.branch_id === currentBranchId) {
+            updateTableStatus(data.table_id, data.table_number, data.status);
+        }
+    });
+    
+    // Listen for order edit notifications from cashiers
+    socket.on('order_edited_by_cashier', function(data) {
+        console.log('Order edited by cashier event received:', data);
+        
+        // Check if this affects our branch
+        if (data.branch_id === currentBranchId) {
+            markTableOrderAsEdited(data.table_id, data.order_id, data.editor_name, data.edit_summary);
+            showNotification(`Order #${data.order_number} on Table ${data.table_number} was edited by ${data.editor_name}`, 'warning');
+        }
+    });
+    
+    // Function to update table status (free or busy)
+    function updateTableStatus(tableId, tableNumber, status) {
+        if (!tableId) return;
+        
+        // Find the table card
+        const tableCard = document.querySelector(`[data-table-id="${tableId}"]`);
+        if (tableCard) {
+            if (status === 'free') {
+                // Change from busy to free
+                if (tableCard.classList.contains('busy')) {
+                    tableCard.classList.remove('busy');
+                    tableCard.classList.add('free');
+                    
+                    // Update the card content to show as free
+                    const cardBody = tableCard.querySelector('.card-body');
+                    if (cardBody) {
+                        cardBody.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-table me-2"></i>Table ${tableNumber}
+                                </h5>
+                                <span class="badge bg-success">Free</span>
+                            </div>
+                            <p class="card-text text-muted">Available for new orders</p>
+                            <div class="table-actions mt-3">
+                                <a href="/pos/?table_id=${tableId}&return_to=table_management" 
+                                   class="btn btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Take Order
+                                </a>
+                            </div>
+                        `;
+                    }
+                    
+                    // Show notification
+                    showNotification(`Table ${tableNumber} is now available for new orders!`, 'success');
+                }
+            } else if (status === 'busy') {
+                // Change from free to busy
+                if (tableCard.classList.contains('free')) {
+                    tableCard.classList.remove('free');
+                    tableCard.classList.add('busy');
+                    
+                    // Update the card content to show as busy
+                    const cardBody = tableCard.querySelector('.card-body');
+                    if (cardBody) {
+                        cardBody.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-table me-2"></i>Table ${tableNumber}
+                                </h5>
+                                <span class="badge bg-warning">Busy</span>
+                            </div>
+                            <p class="card-text text-muted">Order in progress</p>
+                            <div class="table-actions mt-3">
+                                <a href="/pos/?table_id=${tableId}&add_items=true&return_to=table_management" 
+                                   class="btn btn-outline-primary me-2">
+                                    <i class="bi bi-plus"></i> Add Items
+                                </a>
+                                <button class="btn btn-outline-success" onclick="markTablePaid(${tableId})">
+                                    <i class="bi bi-check-circle"></i> Mark Paid
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
+                    // Show notification
+                    showNotification(`Table ${tableNumber} now has an active order`, 'info');
+                }
+            }
+            
+            // Update table counts
+            updateTableCounts();
+        }
+    }
+    
+    // Function to show notifications
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            <i class="bi bi-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+    
+    // Function to mark table order as edited
+    function markTableOrderAsEdited(tableId, orderId, editorName, editSummary) {
+        const tableCard = document.querySelector(`[data-table-id="${tableId}"]`);
+        if (tableCard && tableCard.classList.contains('busy')) {
+            // Add edit marker to the table card
+            const orderInfo = tableCard.querySelector('.order-info');
+            if (orderInfo) {
+                // Remove existing edit marker if any
+                const existingMarker = orderInfo.querySelector('.edit-marker');
+                if (existingMarker) {
+                    existingMarker.remove();
+                }
+                
+                // Add new edit marker
+                const editMarker = document.createElement('div');
+                editMarker.className = 'edit-marker mt-2';
+                editMarker.innerHTML = `
+                    <span class="badge bg-warning text-dark">
+                        <i class="bi bi-pencil-square me-1"></i>Edited by ${editorName}
+                    </span>
+                `;
+                orderInfo.appendChild(editMarker);
+                
+                // Add pulsing animation to the table card
+                tableCard.classList.add('order-edited');
+                setTimeout(() => {
+                    tableCard.classList.remove('order-edited');
+                }, 3000);
+            }
+        }
+    }
+    
+    let currentTableId = null;
+    let currentTableNumber = null;
+    
+    // Update table counts
+    updateTableCounts();
+    
+    // View order button clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.view-order-btn')) {
+            const orderId = e.target.closest('.view-order-btn').dataset.orderId;
+            showOrderDetails(orderId);
+        }
+    });
+    
+    // Refresh tables
+    document.getElementById('refreshTablesBtn').addEventListener('click', function() {
+        location.reload();
+    });
+    
+    function updateTableCounts() {
+        const freeCount = document.querySelectorAll('.table-card.free').length;
+        const busyCount = document.querySelectorAll('.table-card.busy').length;
+        
+        document.getElementById('freeTablesCount').textContent = `${freeCount} Free`;
+        document.getElementById('busyTablesCount').textContent = `${busyCount} Busy`;
+    }
+    
+    // Function to show order details in modal
+    function showOrderDetails(orderId) {
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+        modal.show();
+        
+        // Reset content to loading state
+        document.getElementById('orderDetailsContent').innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <span class="ms-2">Loading order details...</span>
+            </div>
+        `;
+        
+        // Fetch order details
+        fetch(`/pos/get_order_details/${orderId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayOrderDetails(data);
+                } else {
+                    showOrderError(data.message || 'Failed to load order details');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching order details:', error);
+                showOrderError('Network error occurred while loading order details');
+            });
+    }
+    
+    // Function to display order details in the modal
+    function displayOrderDetails(data) {
+        const content = document.getElementById('orderDetailsContent');
+        const orderData = data.order; // Use the nested order object
+        
+        // Format the creation date
+        const createdDate = new Date(orderData.created_at).toLocaleString();
+        
+        // Build items list with edit tracking
+        let itemsHtml = '';
+        orderData.items.forEach(item => {
+            // Style for deleted/new items
+            const isDeleted = item.is_deleted || false;
+            const isNew = item.is_new || false;
+            let rowStyle = '';
+            let itemPrefix = '';
+            
+            if (isDeleted) {
+                rowStyle = 'style="text-decoration: line-through; background-color: #ffebee; color: #666;"';
+                itemPrefix = '🚫 ';
+            } else if (isNew) {
+                rowStyle = 'style="background-color: #e8f5e8; font-weight: bold;"';
+                itemPrefix = '🆕 ';
+            }
+            
+            itemsHtml += `
+                <div class="row align-items-center py-2 border-bottom" ${rowStyle}>
+                    <div class="col-6">
+                        <div class="fw-bold">${itemPrefix}${item.menu_item_name}</div>
+                        ${item.special_requests ? `<small class="text-muted">${item.special_requests}</small>` : ''}
+                    </div>
+                    <div class="col-2 text-center">
+                        <span class="badge bg-secondary">${item.quantity}</span>
+                    </div>
+                    <div class="col-2 text-end">
+                        ${item.unit_price.toFixed(2)} QAR
+                    </div>
+                    <div class="col-2 text-end fw-bold">
+                        ${item.total_price.toFixed(2)} QAR
+                    </div>
+                </div>
+            `;
+        });
+        
+        // Edit history section
+        let editHistoryHtml = '';
+        if (orderData.edit_count && orderData.edit_count > 0) {
+            editHistoryHtml = `
+                <div class="alert alert-warning mb-4">
+                    <h6><i class="bi bi-pencil-square"></i> Edit History</h6>
+                    <p><strong>This order has been edited ${orderData.edit_count} time(s)</strong></p>
+                    ${orderData.last_edited_at ? `<p><small>Last edited: ${new Date(orderData.last_edited_at).toLocaleString()}</small></p>` : ''}
+                    ${orderData.last_edited_by ? `<p><small>Last edited by: ${orderData.last_edited_by}</small></p>` : ''}
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <strong>Legend:</strong> 
+                            🆕 = New items added | 🚫 = Items removed
+                        </small>
+                    </div>
+                </div>
+            `;
+        }
+
+        content.innerHTML = `
+            <div class="container-fluid">
+                ${editHistoryHtml}
+                
+                <!-- Order Header -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <h6 class="text-muted mb-1">Order Number</h6>
+                        <div class="h5 text-primary">${orderData.order_number}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-muted mb-1">Count #</h6>
+                        <div class="h5">${orderData.order_counter ? `<span class="badge bg-dark">${orderData.order_counter}</span>` : '<span class="text-muted">-</span>'}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 class="text-muted mb-1">Total Amount</h6>
+                        <div class="h4 text-success">${orderData.total_amount.toFixed(2)} QAR</div>
+                    </div>
+                </div>
+                
+                <!-- Order Info -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <h6 class="text-muted mb-1">Table</h6>
+                        <div class="fw-bold">
+                            <i class="bi bi-table me-1"></i>${orderData.table_number || 'N/A'}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h6 class="text-muted mb-1">Cashier</h6>
+                        <div class="fw-bold">
+                            <i class="bi bi-person me-1"></i>${orderData.cashier_name || 'N/A'}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h6 class="text-muted mb-1">Service Type</h6>
+                        <div class="fw-bold">
+                            <i class="bi bi-${orderData.service_type === 'on_table' ? 'table' : orderData.service_type === 'take_away' ? 'bag-check' : 'truck'} me-1"></i>
+                            ${orderData.service_type === 'on_table' ? 'Dine In' : orderData.service_type === 'take_away' ? 'Take Away' : 'Delivery'}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h6 class="text-muted mb-1">Created</h6>
+                        <div class="fw-bold">
+                            <i class="bi bi-clock me-1"></i>${createdDate}
+                        </div>
+                    </div>
+                </div>
+                
+                ${orderData.delivery_company ? `
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-1">Delivery Company</h6>
+                        <div class="fw-bold">
+                            <i class="bi bi-truck me-1"></i>${orderData.delivery_company}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- Order Items -->
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="text-muted mb-3">Order Items (${orderData.items.length} items)</h6>
+                        <div class="border rounded p-3">
+                            <!-- Items Header -->
+                            <div class="row fw-bold text-muted border-bottom pb-2 mb-2">
+                                <div class="col-6">Item</div>
+                                <div class="col-2 text-center">Qty</div>
+                                <div class="col-2 text-end">Unit Price</div>
+                                <div class="col-2 text-end">Total</div>
+                            </div>
+                            
+                            <!-- Items List -->
+                            ${itemsHtml}
+                            
+                            <!-- Total Row -->
+                            <div class="row mt-3 pt-3 border-top">
+                                <div class="col-8">
+                                    <div class="h6 mb-0">Total Amount:</div>
+                                </div>
+                                <div class="col-4 text-end">
+                                    <div class="h5 text-success mb-0">${orderData.total_amount.toFixed(2)} QAR</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Function to show error in modal
+    function showOrderError(message) {
+        const content = document.getElementById('orderDetailsContent');
+        content.innerHTML = `
+            <div class="text-center text-danger">
+                <i class="bi bi-exclamation-triangle display-4 mb-3"></i>
+                <h5>Error Loading Order</h5>
+                <p class="text-muted">${message}</p>
+            </div>
+        `;
+    }
+    
+});
+</script>
+{% endblock %}

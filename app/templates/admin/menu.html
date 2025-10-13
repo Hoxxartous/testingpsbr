@@ -1,0 +1,3265 @@
+{% extends "base.html" %}
+
+{% block title %}Menu Management - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1>Menu Management</h1>
+            <div>
+                <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                    <i class="bi bi-plus-circle"></i> Add Category
+                </button>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                    <i class="bi bi-plus-circle"></i> Add Item
+                </button>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="menuFilterForm" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="categoryFilter" class="form-label">Category</label>
+                        <select class="form-select" id="categoryFilter" name="category_id">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}" {% if filters.category_id == category.id|string() %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="statusFilter" class="form-label">Status</label>
+                        <select class="form-select" id="statusFilter" name="is_active">
+                            <option value="">All Statuses</option>
+                            <option value="true" {% if filters.is_active == 'true' %}selected{% endif %}>Active</option>
+                            <option value="false" {% if filters.is_active == 'false' %}selected{% endif %}>Inactive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <div class="btn-group w-100" role="group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-funnel"></i> Filter
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearFilters">
+                                <i class="bi bi-x-circle"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Quick Category Management Section -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-gradient-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="card-title mb-1">
+                                    <i class="bi bi-lightning-charge-fill"></i> Quick Category Management
+                                </h5>
+                                <small class="opacity-75">Manage items in the Quick category for faster POS access</small>
+                            </div>
+                            <button class="btn btn-outline-light btn-sm" id="refreshQuickData">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Search and Filter Bar -->
+                        <div class="p-3 bg-light border-bottom">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control" id="searchAvailableItems" 
+                                               placeholder="Search available items...">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" id="filterByCategory">
+                                        <option value="">All Categories</option>
+                                        {% for category in categories %}
+                                            {% if category.name != 'Quick' %}
+                                            <option value="{{ category.name }}">{{ category.name }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-outline-secondary w-100" id="selectAllItems">
+                                        <i class="bi bi-check-all"></i> Select All
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-0">
+                            <!-- Available Items Panel -->
+                            <div class="col-md-7 border-end">
+                                <div class="p-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0 text-primary">
+                                            <i class="bi bi-grid-3x3-gap"></i> Available Items
+                                        </h6>
+                                        <span class="badge bg-info" id="availableItemsCount">0 items</span>
+                                    </div>
+                                    
+                                    <div id="availableItemsContainer" class="available-items-grid">
+                                        <!-- Items will be loaded here via AJAX -->
+                                        <div class="text-center py-4">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="text-muted mt-2 mb-0">Loading available items...</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3 d-flex gap-2">
+                                        <button type="button" class="btn btn-success flex-fill" id="addToQuickBtn" disabled>
+                                            <i class="bi bi-plus-circle"></i> Add Selected to Quick (<span id="selectedCount">0</span>)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary" id="clearSelection">
+                                            <i class="bi bi-x-circle"></i> Clear
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Quick Items Panel -->
+                            <div class="col-md-5">
+                                <div class="p-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0 text-success">
+                                            <i class="bi bi-lightning-fill"></i> Quick Category Items
+                                        </h6>
+                                        <span class="badge bg-success" id="quickItemsCount">0 items</span>
+                                    </div>
+                                    
+                                    <div id="quickItemsContainer" class="quick-items-list">
+                                        <!-- Quick items will be loaded here via AJAX -->
+                                        <div class="text-center py-4">
+                                            <div class="spinner-border spinner-border-sm text-success" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="text-muted mt-2 mb-0">Loading quick items...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Table Management Section -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-gradient-success text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="card-title mb-1">
+                                    <i class="bi bi-table"></i> Table Management
+                                </h5>
+                                <small class="opacity-75">Manage restaurant tables for POS system</small>
+                            </div>
+                            <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#addTableModal">
+                                <i class="bi bi-plus-circle"></i> Add Table
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Table Planner Toolbar -->
+                        <div class="planner-toolbar p-3 bg-light border-bottom">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-outline-success btn-sm" id="addTableBtn" data-bs-toggle="modal" data-bs-target="#addTableModal">
+                                            <i class="bi bi-plus-circle"></i> Add Table
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" id="gridToggle">
+                                            <i class="bi bi-grid-3x3"></i> Grid
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="resetLayout">
+                                            <i class="bi bi-arrow-clockwise"></i> Reset
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-end">
+                                    <div class="d-flex align-items-center justify-content-end gap-3">
+                                        <div class="zoom-controls">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="zoomOut">
+                                                <i class="bi bi-dash"></i>
+                                            </button>
+                                            <span class="zoom-level mx-2">100%</span>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="zoomIn">
+                                                <i class="bi bi-plus"></i>
+                                            </button>
+                                        </div>
+                                        <div class="table-count">
+                                            <span class="badge bg-success" id="tableCount">0 tables</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 2D Table Planner Canvas -->
+                        <div class="table-planner-container">
+                            <div id="tablePlanner" class="table-planner">
+                                <!-- Grid overlay -->
+                                <div class="grid-overlay" id="gridOverlay"></div>
+                                
+                                <!-- Restaurant floor plan -->
+                                <div class="restaurant-floor">
+                                    <!-- Tables will be positioned here -->
+                                    <div class="loading-state text-center">
+                                        <div class="spinner-border spinner-border-sm text-success" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="text-muted mt-2 mb-0">Loading restaurant layout...</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Selection box for multi-select -->
+                                <div class="selection-box" id="selectionBox"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Delivery Company Management Section -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-gradient-info text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="card-title mb-1">
+                                    <i class="bi bi-truck"></i> Delivery Company Management
+                                </h5>
+                                <small class="opacity-75">Manage delivery companies for order processing</small>
+                            </div>
+                            <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#addDeliveryCompanyModal">
+                                <i class="bi bi-plus-circle"></i> Add Company
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="deliveryCompaniesContainer">
+                            <!-- Delivery companies will be loaded here via AJAX -->
+                            <div class="col-12 text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-info" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="text-muted mt-2 mb-0">Loading delivery companies...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Categories</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            {% for category in categories %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center" data-category-id="{{ category.id }}">
+                                <div>
+                                    <strong>{{ category.name }}</strong>
+                                    <div class="small text-muted">{{ category.description or '' }}</div>
+                                </div>
+                                <div>
+                                    <span class="badge bg-{{ 'success' if category.is_active else 'danger' }}">
+                                        {{ 'Active' if category.is_active else 'Inactive' }}
+                                    </span>
+                                    <div class="btn-group ms-2" role="group">
+                                        <button class="btn btn-sm btn-outline-primary edit-category" 
+                                                data-category-id="{{ category.id }}"
+                                                data-name="{{ category.name }}"
+                                                data-description="{{ category.description or '' }}"
+                                                data-is-active="{{ category.is_active }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Menu Items</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Category</th>
+                                        <th>Price (QAR)</th>
+                                        <th>Visual</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items %}
+                                    <tr data-item-id="{{ item.id }}">
+                                        <td>{{ item.name }}</td>
+                                        <td>{{ item.category.name }}</td>
+                                        <td>{{ "%.2f"|format(item.price) }}</td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% if item.card_color and item.card_color != '#ffffff' %}
+                                                <span class="badge" style="background-color: {{ item.card_color }}; color: {{ '#ffffff' if item.card_color in ['#000000', '#333333', '#666666'] else '#000000' }};">Color</span>
+                                                {% endif %}
+                                                {% if item.size_flag and item.size_flag != 'medium' %}
+                                                <span class="badge bg-info">{{ item.size_flag|title }}</span>
+                                                {% endif %}
+                                                {% if item.portion_type and item.portion_type != 'plate' %}
+                                                <span class="badge bg-warning text-dark">{{ item.portion_type|title }}</span>
+                                                {% endif %}
+                                                {% if item.visual_priority and item.visual_priority != 'normal' %}
+                                                <span class="badge bg-secondary">{{ item.visual_priority }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if item.is_active else 'danger' }}">
+                                                {{ 'Active' if item.is_active else 'Inactive' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button class="btn btn-sm btn-outline-primary edit-item" 
+                                                        data-item-id="{{ item.id }}"
+                                                        data-name="{{ item.name }}"
+                                                        data-category-id="{{ item.category_id }}"
+                                                        data-price="{{ item.price }}"
+                                                        data-description="{{ item.description or '' }}"
+                                                        data-image-url="{{ item.image_url or '' }}"
+                                                        data-is-active="{{ item.is_active }}"
+                                                        data-is-vegetarian="{{ item.is_vegetarian }}"
+                                                        data-is-vegan="{{ item.is_vegan }}"
+                                                        data-card-color="{{ item.card_color or '#ffffff' }}"
+                                                        data-size-flag="{{ item.size_flag or 'medium' }}"
+                                                        data-portion-type="{{ item.portion_type or 'plate' }}"
+                                                        data-visual-priority="{{ item.visual_priority or 'normal' }}">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Delivery Company Icon Modal -->
+<div class="modal fade" id="editDeliveryIconModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Delivery Company Icon - <span id="editIconCompanyName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editIconCompanyValue" />
+        <div class="mb-3">
+          <label for="editIconSelect" class="form-label">Select Icon</label>
+          <select class="form-select" id="editIconSelect">
+            <option value="bi-truck">Truck</option>
+            <option value="bi-bicycle">Bicycle</option>
+            <option value="bi-scooter">Scooter</option>
+            <option value="bi-car">Car</option>
+            <option value="bi-airplane">Airplane</option>
+            <option value="bi-rocket-takeoff">Rocket</option>
+          </select>
+        </div>
+        <div class="small text-muted">This change applies only to your current branch.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveEditIconBtn">
+          <i class="bi bi-check-circle"></i> Save Icon
+        </button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<!-- Add Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="categoryName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoryDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="categoryDescription" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveCategory">Save Category</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <input type="hidden" id="editCategoryId">
+                    <div class="mb-3">
+                        <label for="editCategoryName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="editCategoryName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCategoryDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="editCategoryDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editCategoryStatus" class="form-label">Status</label>
+                        <select class="form-select" id="editCategoryStatus">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditCategory">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Menu Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="itemName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="itemName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="itemCategory" class="form-label">Category</label>
+                        <select class="form-select" id="itemCategory">
+                            {% for category in active_categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="itemPrice" class="form-label">Price (QAR)</label>
+                        <input type="number" class="form-control" id="itemPrice" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="itemDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="itemDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="itemImage" class="form-label">Image URL (Optional)</label>
+                        <input type="text" class="form-control" id="itemImage" placeholder="https://example.com/image.jpg">
+                    </div>
+                    <div class="mb-3">
+                        <label for="itemStatus" class="form-label">Status</label>
+                        <select class="form-select" id="itemStatus">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="itemVegetarian">
+                        <label class="form-check-label" for="itemVegetarian">Vegetarian</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="itemVegan">
+                        <label class="form-check-label" for="itemVegan">Vegan</label>
+                    </div>
+                    
+                    <!-- Visual Customization Section for New Items -->
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-primary">POS Visual Customization</h6>
+                        <p class="small text-muted">Customize how this item appears in the cashier POS interface</p>
+                    </div>
+                    
+                    <!-- Card Color (Always available) -->
+                    <div class="mb-3">
+                        <label for="itemCardColor" class="form-label">Card Color</label>
+                        <input type="color" class="form-control form-control-color" id="itemCardColor" value="#ffffff">
+                    </div>
+                    
+                    <!-- Size and Portion Type (Not for Special Items) -->
+                    <div id="itemRegularCustomization">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="itemSizeFlag" class="form-label">Size Flag</label>
+                                <select class="form-select" id="itemSizeFlag">
+                                    <option value="" selected>No Size Flag</option>
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="big">Big</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="itemPortionType" class="form-label">Portion Type</label>
+                                <select class="form-select" id="itemPortionType">
+                                    <option value="" selected>No Portion Flag</option>
+                                    <option value="plate">Plate</option>
+                                    <option value="sandwich">Sandwich</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Priority (Always available) -->
+                    <div class="mb-3">
+                        <label for="itemVisualPriority" class="form-label">Visual Priority</label>
+                        <select class="form-select" id="itemVisualPriority">
+                            <option value="normal" selected>No Priority Flag</option>
+                            <option value="+">+ (High Priority)</option>
+                            <option value="-">- (Low Priority)</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveItem">Save Item</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Item Modal -->
+<div class="modal fade" id="editItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Menu Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editItemWarning" style="display: none;"></div>
+                <form>
+                    <input type="hidden" id="editItemId">
+                    <div class="mb-3">
+                        <label for="editItemName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="editItemName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editItemCategory" class="form-label">Category</label>
+                        <select class="form-select" id="editItemCategory">
+                            {% for category in active_categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editItemPrice" class="form-label">Price (QAR)</label>
+                        <input type="number" class="form-control" id="editItemPrice" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editItemDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="editItemDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editItemImage" class="form-label">Image URL (Optional)</label>
+                        <input type="text" class="form-control" id="editItemImage" placeholder="https://example.com/image.jpg">
+                    </div>
+                    
+                    <!-- Visual Customization Section -->
+                    <div class="mb-3">
+                        <h6 class="fw-bold text-primary">POS Visual Customization</h6>
+                        <p class="small text-muted">Customize how this item appears in the cashier POS interface</p>
+                    </div>
+                    
+                    <!-- Card Color (Always available) -->
+                    <div class="mb-3">
+                        <label for="editItemCardColor" class="form-label">Card Color</label>
+                        <input type="color" class="form-control form-control-color" id="editItemCardColor" value="#ffffff">
+                    </div>
+                    
+                    <!-- Size and Portion Type (Not for Special Items) -->
+                    <div id="editItemRegularCustomization">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="editItemSizeFlag" class="form-label">Size Flag</label>
+                                <select class="form-select" id="editItemSizeFlag">
+                                    <option value="">No Size Flag</option>
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="big">Big</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="editItemPortionType" class="form-label">Portion Type</label>
+                                <select class="form-select" id="editItemPortionType">
+                                    <option value="">No Portion Flag</option>
+                                    <option value="plate">Plate</option>
+                                    <option value="sandwich">Sandwich</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Priority (Always available) -->
+                    <div class="mb-3">
+                        <label for="editItemVisualPriority" class="form-label">Visual Priority</label>
+                        <select class="form-select" id="editItemVisualPriority">
+                            <option value="normal">No Priority Flag</option>
+                            <option value="+">+ (High Priority)</option>
+                            <option value="-">- (Low Priority)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editItemStatus" class="form-label">Status</label>
+                        <select class="form-select" id="editItemStatus">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editItemVegetarian">
+                        <label class="form-check-label" for="editItemVegetarian">Vegetarian</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editItemVegan">
+                        <label class="form-check-label" for="editItemVegan">Vegan</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditItem">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Table Modal -->
+<div class="modal fade" id="addTableModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Table</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="tableNumber" class="form-label">Table Number</label>
+                        <input type="text" class="form-control" id="tableNumber" required placeholder="e.g., T01, Table 1, A1">
+                    </div>
+                    <div class="mb-3">
+                        <label for="tableCapacity" class="form-label">Capacity (Number of Seats)</label>
+                        <input type="number" class="form-control" id="tableCapacity" min="1" max="20" value="4" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tableDescription" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="tableDescription" rows="2" placeholder="e.g., Window table, VIP section"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="saveTable">
+                    <i class="bi bi-check-circle"></i> Add Table
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Table Modal -->
+<div class="modal fade" id="editTableModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Table</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <input type="hidden" id="editTableId">
+                    <div class="mb-3">
+                        <label for="editTableNumber" class="form-label">Table Number</label>
+                        <input type="text" class="form-control" id="editTableNumber" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTableCapacity" class="form-label">Capacity (Number of Seats)</label>
+                        <input type="number" class="form-control" id="editTableCapacity" min="1" max="20" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTableDescription" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="editTableDescription" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editTableStatus" class="form-label">Status</label>
+                        <select class="form-select" id="editTableStatus">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger me-auto" id="deleteTable">
+                    <i class="bi bi-trash"></i> Delete Table
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="saveEditTable">
+                    <i class="bi bi-check-circle"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Context Menu -->
+<div class="context-menu" id="contextMenu">
+    <button class="context-menu-item" id="editTableMenu">
+        <i class="bi bi-pencil"></i> Edit Table
+    </button>
+    <button class="context-menu-item" id="duplicateTableMenu">
+        <i class="bi bi-files"></i> Duplicate
+    </button>
+    <button class="context-menu-item danger" id="deleteTableMenu">
+        <i class="bi bi-trash"></i> Delete Table
+    </button>
+</div>
+
+<!-- Add Delivery Company Modal -->
+<div class="modal fade" id="addDeliveryCompanyModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Delivery Company</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addDeliveryCompanyForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="companyName" class="form-label">Company Name</label>
+                        <input type="text" class="form-control" id="companyName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="companyValue" class="form-label">System Value</label>
+                        <input type="text" class="form-control" id="companyValue" name="value" required 
+                               placeholder="e.g., talabat, deliveroo" pattern="[a-z_]+" 
+                               title="Only lowercase letters and underscores allowed">
+                        <div class="form-text">Used internally by the system. Use lowercase letters and underscores only.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="companyIcon" class="form-label">Icon</label>
+                        <div class="row g-2" id="iconSelection">
+                            <div class="col-2">
+                                <input type="radio" class="btn-check" name="icon" id="icon-truck" value="bi-truck" checked>
+                                <label class="btn btn-outline-primary w-100" for="icon-truck">
+                                    <i class="bi bi-truck fs-4"></i>
+                                </label>
+                            </div>
+                            <div class="col-2">
+                                <input type="radio" class="btn-check" name="icon" id="icon-bicycle" value="bi-bicycle">
+                                <label class="btn btn-outline-primary w-100" for="icon-bicycle">
+                                    <i class="bi bi-bicycle fs-4"></i>
+                                </label>
+                            </div>
+                            <div class="col-2">
+                                <input type="radio" class="btn-check" name="icon" id="icon-scooter" value="bi-scooter">
+                                <label class="btn btn-outline-primary w-100" for="icon-scooter">
+                                    <i class="bi bi-scooter fs-4"></i>
+                                </label>
+                            </div>
+                            <div class="col-2">
+                                <input type="radio" class="btn-check" name="icon" id="icon-car" value="bi-car-front">
+                                <label class="btn btn-outline-primary w-100" for="icon-car">
+                                    <i class="bi bi-car-front fs-4"></i>
+                                </label>
+                            </div>
+                            <div class="col-2">
+                                <input type="radio" class="btn-check" name="icon" id="icon-airplane" value="bi-airplane">
+                                <label class="btn btn-outline-primary w-100" for="icon-airplane">
+                                    <i class="bi bi-airplane fs-4"></i>
+                                </label>
+                            </div>
+                            <div class="col-2">
+                                <input type="radio" class="btn-check" name="icon" id="icon-rocket" value="bi-rocket-takeoff">
+                                <label class="btn btn-outline-primary w-100" for="icon-rocket">
+                                    <i class="bi bi-rocket-takeoff fs-4"></i>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-text">Select an icon to represent this delivery company</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Company</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Quick Category Management Styles */
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+}
+
+.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+}
+
+.bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%) !important;
+}
+
+/* 2D Table Planner Styles */
+.table-planner-container {
+    height: 450px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.table-planner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: auto;
+    cursor: grab;
+    transform-origin: 0 0;
+    transition: transform 0.3s ease;
+}
+
+.table-planner:active {
+    cursor: grabbing;
+}
+
+.restaurant-floor {
+    width: calc(100% - 20px);
+    height: calc(100% - 20px);
+    position: relative;
+    background: linear-gradient(45deg, #ffffff 25%, transparent 25%), 
+                linear-gradient(-45deg, #ffffff 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #ffffff 75%), 
+                linear-gradient(-45deg, transparent 75%, #ffffff 75%);
+    background-size: 30px 30px;
+    background-position: 0 0, 0 15px, 15px -15px, -15px 0px;
+    background-color: #fafafa;
+    border: 2px solid #28a745;
+    border-radius: 8px;
+    margin: 10px;
+    overflow: visible;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    min-width: 300px;
+    min-height: 200px;
+    box-sizing: border-box;
+    touch-action: auto; /* Allow normal touch interactions */
+}
+
+.grid-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    background-image: 
+        linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+.grid-overlay.active {
+    opacity: 1;
+}
+
+.loading-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+
+/* Draggable Table Styles */
+.draggable-table {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    cursor: grab;
+    user-select: none;
+    z-index: 5;
+    transition: all 0.2s ease;
+    touch-action: manipulation; /* Allow basic touch but prevent double-tap zoom */
+    -webkit-touch-callout: none; /* Disable callout on iOS */
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.draggable-table:active {
+    cursor: grabbing;
+}
+
+/* Touch device specific styles */
+@media (hover: none) and (pointer: coarse) {
+    .draggable-table {
+        width: 70px !important;
+        height: 70px !important;
+        cursor: default;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    .draggable-table:hover { transform: none; }
+    .table-visual { border-width: 3px; display: flex !important; visibility: visible !important; }
+}
+    
+    .table-visual.rectangle {
+        width: 90px;
+        height: 50px;
+    }
+    
+    .table-number {
+        font-size: 11px;
+        font-weight: bold;
+        color: white !important;
+        display: block !important;
+    }
+    
+    .chair {
+        width: 14px;
+        height: 14px;
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* Adjust chair positions for touch tables */
+    .draggable-table .chair:nth-child(2) { top: -17px; }
+    .draggable-table .chair:nth-child(3) { right: -17px; }
+    .draggable-table .chair:nth-child(4) { bottom: -17px; }
+    .draggable-table .chair:nth-child(5) { left: -17px; }
+    .draggable-table .chair:nth-child(6) { top: -12px; right: 15%; }
+    .draggable-table .chair:nth-child(7) { top: -12px; left: 15%; }
+    .draggable-table .chair:nth-child(8) { bottom: -12px; right: 15%; }
+    .draggable-table .chair:nth-child(9) { bottom: -12px; left: 15%; }
+}
+
+.draggable-table:hover {
+    z-index: 10;
+    transform: scale(1.05);
+}
+
+.draggable-table.selected {
+    z-index: 15;
+    box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.5);
+    border-radius: 8px;
+}
+
+.draggable-table.dragging {
+    z-index: 20;
+    transform: scale(1.1) rotate(5deg);
+    opacity: 0.9;
+}
+
+/* Fallback visibility rules for all devices */
+.draggable-table {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: absolute !important;
+}
+
+.table-visual {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.chair {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.table-visual {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+    border: 3px solid #654321;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.table-visual.square {
+    border-radius: 8px;
+}
+
+.table-visual.rectangle {
+    width: 120px;
+    height: 60px;
+    border-radius: 8px;
+}
+
+.table-number {
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Chair Styles */
+.chair {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    border: 1px solid #343a40;
+    border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Chair positions for round tables */
+.draggable-table .chair:nth-child(2) { top: -20px; left: 50%; transform: translateX(-50%); }
+.draggable-table .chair:nth-child(3) { top: 50%; right: -20px; transform: translateY(-50%); }
+.draggable-table .chair:nth-child(4) { bottom: -20px; left: 50%; transform: translateX(-50%); }
+.draggable-table .chair:nth-child(5) { top: 50%; left: -20px; transform: translateY(-50%); }
+.draggable-table .chair:nth-child(6) { top: -14px; right: 20%; }
+.draggable-table .chair:nth-child(7) { top: -14px; left: 20%; }
+.draggable-table .chair:nth-child(8) { bottom: -14px; right: 20%; }
+.draggable-table .chair:nth-child(9) { bottom: -14px; left: 20%; }
+
+/* Table status indicators */
+.table-status-indicator {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.table-status-indicator.active {
+    background: #28a745;
+}
+
+.table-status-indicator.inactive {
+    background: #dc3545;
+}
+
+.table-status-indicator.occupied {
+    background: #ffc107;
+}
+
+/* Selection box */
+.selection-box {
+    position: absolute;
+    border: 2px dashed #007bff;
+    background: rgba(0, 123, 255, 0.1);
+    pointer-events: none;
+    display: none;
+    z-index: 100;
+}
+
+/* Context menu */
+.context-menu {
+    position: absolute;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 8px 0;
+    min-width: 150px;
+    z-index: 1000;
+    display: none;
+}
+
+.context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-size: 14px;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.context-menu-item:hover {
+    background: #f8f9fa;
+}
+
+.context-menu-item.danger:hover {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Zoom controls */
+.zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.zoom-level {
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 50px;
+    text-align: center;
+}
+
+/* Toolbar styles */
+.planner-toolbar {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #dee2e6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-planner-container {
+        height: 400px;
+        width: 100%;
+        overflow: hidden;
+    }
+    
+    .restaurant-floor {
+        width: calc(100% - 20px);
+        height: calc(100% - 20px);
+        background-size: 12px 12px;
+        background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
+        margin: 10px;
+        min-width: 280px;
+        min-height: 200px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .draggable-table {
+        width: 40px !important;
+        height: 40px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 10 !important;
+    }
+    
+    .table-visual {
+        border-width: 2px;
+        display: flex !important;
+        visibility: visible !important;
+        background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%) !important;
+    }
+    
+    .table-visual.rectangle {
+        width: 55px;
+        height: 28px;
+    }
+    
+    .table-visual.square {
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+    }
+    
+    .table-number {
+        font-size: 8px;
+        font-weight: bold;
+        color: white !important;
+        display: block !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.9);
+    }
+    
+    .chair {
+        width: 8px;
+        height: 8px;
+        display: block !important;
+        visibility: visible !important;
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+        border-radius: 2px;
+    }
+    
+    /* Mobile chair positions - closer to table */
+    .draggable-table .chair:nth-child(2) { top: -10px; }
+    .draggable-table .chair:nth-child(3) { right: -10px; }
+    .draggable-table .chair:nth-child(4) { bottom: -10px; }
+    .draggable-table .chair:nth-child(5) { left: -10px; }
+    .draggable-table .chair:nth-child(6) { top: -7px; right: 25%; }
+    .draggable-table .chair:nth-child(7) { top: -7px; left: 25%; }
+    .draggable-table .chair:nth-child(8) { bottom: -7px; right: 25%; }
+    .draggable-table .chair:nth-child(9) { bottom: -7px; left: 25%; }
+    
+    .planner-toolbar .row {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .planner-toolbar .col-md-6 {
+        text-align: center;
+    }
+    
+    .planner-toolbar .btn {
+        min-height: 44px; /* Touch-friendly button height */
+        padding: 12px 16px;
+        font-size: 16px;
+    }
+    
+    .zoom-controls .btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
+    .context-menu {
+        font-size: 18px;
+        min-width: 180px;
+    }
+    
+    .context-menu-item {
+        padding: 12px 20px;
+        font-size: 16px;
+    }
+}
+
+/* Extra small screens (phones) */
+@media (max-width: 480px) {
+    .table-planner-container {
+        height: 350px;
+    }
+    
+    .restaurant-floor {
+        background-size: 10px 10px;
+        background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+    }
+    
+    .draggable-table {
+        width: 35px !important;
+        height: 35px !important;
+    }
+    
+    .table-visual {
+        border-width: 2px;
+    }
+    
+    .table-visual.rectangle {
+        width: 48px;
+        height: 24px;
+    }
+    
+    .table-visual.square {
+        width: 35px;
+        height: 35px;
+        border-radius: 5px;
+    }
+    
+    .table-number {
+        font-size: 7px;
+        font-weight: bold;
+    }
+    
+    .chair {
+        width: 6px;
+        height: 6px;
+        border-radius: 1px;
+    }
+    
+    /* Extra small chair positions */
+    .draggable-table .chair:nth-child(2) { top: -8px; }
+    .draggable-table .chair:nth-child(3) { right: -8px; }
+    .draggable-table .chair:nth-child(4) { bottom: -8px; }
+    .draggable-table .chair:nth-child(5) { left: -8px; }
+    .draggable-table .chair:nth-child(6) { top: -6px; right: 30%; }
+    .draggable-table .chair:nth-child(7) { top: -6px; left: 30%; }
+    .draggable-table .chair:nth-child(8) { bottom: -6px; right: 30%; }
+    .draggable-table .chair:nth-child(9) { bottom: -6px; left: 30%; }
+}
+
+.available-items-grid {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+}
+
+.available-item-card {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.available-item-card:hover {
+    background: #e9ecef;
+    border-color: #007bff;
+    transform: translateY(-1px);
+}
+
+.available-item-card .form-check {
+    margin-bottom: 0;
+}
+
+.available-item-card .form-check-input:checked ~ .form-check-label {
+    background: rgba(0, 123, 255, 0.1);
+    border-radius: 0.25rem;
+}
+
+.available-item-card .item-info {
+    padding-left: 0.5rem;
+}
+
+.available-item-card .item-name {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.25rem;
+}
+
+.available-item-card .item-meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.category-badge {
+    background: #6c757d;
+    color: white;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.price-badge {
+    background: #28a745;
+    color: white;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.quick-items-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+}
+
+.quick-item-card {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border: 1px solid #c3e6cb;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.quick-item-card:hover {
+    background: linear-gradient(135deg, #c3e6cb 0%, #b8dabd 100%);
+    border-color: #28a745;
+    transform: translateY(-1px);
+}
+
+.quick-item-card .item-name {
+    font-weight: 600;
+    color: #155724;
+    margin-bottom: 0.25rem;
+}
+
+.quick-item-card .item-meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.origin-badge {
+    background: rgba(21, 87, 36, 0.1);
+    color: #155724;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.quick-item-card .remove-from-quick {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .available-items-grid,
+    .quick-items-list {
+        max-height: 250px;
+    }
+    
+    .available-item-card,
+    .quick-item-card {
+        padding: 0.5rem;
+    }
+    
+    .item-meta {
+        flex-direction: column;
+        gap: 0.25rem !important;
+    }
+}
+
+/* Loading states */
+.loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Custom scrollbars */
+.available-items-grid::-webkit-scrollbar,
+.quick-items-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.available-items-grid::-webkit-scrollbar-track,
+.quick-items-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.available-items-grid::-webkit-scrollbar-thumb,
+.quick-items-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.available-items-grid::-webkit-scrollbar-thumb:hover,
+.quick-items-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle form submission
+    document.getElementById('menuFilterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const params = new URLSearchParams();
+        for (const [key, value] of formData) {
+            if (value) {
+                params.append(key, value);
+            }
+        }
+        window.location.search = params.toString();
+    });
+    
+    // Clear filters
+    document.getElementById('clearFilters').addEventListener('click', function() {
+        window.location.search = '';
+    });
+    
+    // Handle save category button click
+    document.querySelector('#addCategoryModal .btn-primary').addEventListener('click', function() {
+        // Get form data
+        const categoryName = document.getElementById('categoryName').value;
+        const categoryDescription = document.getElementById('categoryDescription').value;
+        
+        // Validate required fields
+        if (!categoryName) {
+            showNotification('Please enter a category name', 'error');
+            return;
+        }
+        
+        // Create category data object
+        const categoryData = {
+            name: categoryName,
+            description: categoryDescription
+        };
+        
+        // Send AJAX request to create category
+        fetch('/admin/create_category', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(categoryData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showNotification('Category created successfully!', 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addCategoryModal'));
+                modal.hide();
+                
+                // Reset form
+                document.getElementById('addCategoryModal').querySelector('form').reset();
+                
+                // Reload the page to show the new category
+                location.reload();
+            } else {
+                // Show error message
+                showNotification('Error creating category: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while creating the category', 'error');
+        });
+    });
+    
+    // Handle edit category button click
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.edit-category')) {
+            const button = e.target.closest('.edit-category');
+            const categoryId = button.getAttribute('data-category-id');
+            const name = button.getAttribute('data-name');
+            const description = button.getAttribute('data-description');
+            const isActive = button.getAttribute('data-is-active');
+            
+            // Populate edit modal with category data
+            document.getElementById('editCategoryId').value = categoryId;
+            document.getElementById('editCategoryName').value = name;
+            document.getElementById('editCategoryDescription').value = description;
+            document.getElementById('editCategoryStatus').value = isActive;
+            
+            // Show edit modal
+            const editModal = new bootstrap.Modal(document.getElementById('editCategoryModal'));
+            editModal.show();
+        }
+    });
+    
+    // Handle save edit category button click
+    document.getElementById('saveEditCategory').addEventListener('click', function() {
+        // Get form data
+        const categoryId = document.getElementById('editCategoryId').value;
+        const categoryName = document.getElementById('editCategoryName').value;
+        const categoryDescription = document.getElementById('editCategoryDescription').value;
+        const categoryStatus = document.getElementById('editCategoryStatus').value;
+        
+        // Validate required fields
+        if (!categoryName) {
+            showNotification('Please enter a category name', 'error');
+            return;
+        }
+        
+        // Check what status change is happening
+        const isBeingSetActive = categoryStatus === 'true';
+        const isBeingSetInactive = categoryStatus === 'false';
+        
+        // Show warning if setting category status
+        if (isBeingSetActive) {
+            if (!confirm('Setting this category to active will also set all menu items in this category to active. Do you want to continue?')) {
+                return;
+            }
+        } else if (isBeingSetInactive) {
+            if (!confirm('Setting this category to inactive will also set all menu items in this category to inactive. Do you want to continue?')) {
+                return;
+            }
+        }
+        
+        // Create category data object
+        const categoryData = {
+            name: categoryName,
+            description: categoryDescription,
+            is_active: categoryStatus === 'true'
+        };
+        
+        // Send AJAX request to update category
+        fetch('/admin/update_category/' + categoryId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(categoryData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showNotification('Category updated successfully!', 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editCategoryModal'));
+                modal.hide();
+                
+                // Reload the page to show the updated category
+                location.reload();
+            } else {
+                // Show error message
+                showNotification('Error updating category: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while updating the category', 'error');
+        });
+    });
+    
+    // Handle category change in Add Item modal
+    document.getElementById('itemCategory').addEventListener('change', function() {
+        const selectedCategoryName = this.options[this.selectedIndex].text;
+        const isSpecialItem = selectedCategoryName === 'طلبات خاصة';
+        const regularCustomization = document.getElementById('itemRegularCustomization');
+        
+        if (isSpecialItem) {
+            regularCustomization.style.display = 'none';
+            // Clear size and portion values for special items
+            document.getElementById('itemSizeFlag').value = '';
+            document.getElementById('itemPortionType').value = '';
+        } else {
+            regularCustomization.style.display = 'block';
+        }
+    });
+    
+    // Handle category change in Edit Item modal
+    document.getElementById('editItemCategory').addEventListener('change', function() {
+        const selectedCategoryName = this.options[this.selectedIndex].text;
+        const isSpecialItem = selectedCategoryName === 'طلبات خاصة';
+        const regularCustomization = document.getElementById('editItemRegularCustomization');
+        
+        if (isSpecialItem) {
+            regularCustomization.style.display = 'none';
+            // Clear size and portion values for special items
+            document.getElementById('editItemSizeFlag').value = '';
+            document.getElementById('editItemPortionType').value = '';
+        } else {
+            regularCustomization.style.display = 'block';
+        }
+    });
+    
+    // Handle save item button click
+    document.querySelector('#addItemModal .btn-primary').addEventListener('click', function() {
+        // Get form data
+        const itemName = document.getElementById('itemName').value;
+        const itemCategory = document.getElementById('itemCategory').value;
+        const itemPrice = document.getElementById('itemPrice').value;
+        const itemDescription = document.getElementById('itemDescription').value;
+        const itemImage = document.getElementById('itemImage').value;
+        const itemStatus = document.getElementById('itemStatus').value;
+        const itemVegetarian = document.getElementById('itemVegetarian').checked;
+        const itemVegan = document.getElementById('itemVegan').checked;
+        const cardColor = document.getElementById('itemCardColor').value;
+        const sizeFlag = document.getElementById('itemSizeFlag').value;
+        const portionType = document.getElementById('itemPortionType').value;
+        const visualPriority = document.getElementById('itemVisualPriority').value;
+        
+        // Check if this is a special item and clear size/portion if needed
+        const categorySelect = document.getElementById('itemCategory');
+        const selectedCategoryName = categorySelect.options[categorySelect.selectedIndex].text;
+        const isSpecialItem = selectedCategoryName === 'طلبات خاصة';
+        
+        // Clear size and portion values for special items
+        const finalSizeFlag = isSpecialItem ? '' : sizeFlag;
+        const finalPortionType = isSpecialItem ? '' : portionType;
+        
+        // Validate required fields
+        if (!itemName || !itemCategory || !itemPrice) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        // Create item data object
+        const itemData = {
+            name: itemName,
+            category_id: itemCategory,
+            price: itemPrice,
+            description: itemDescription,
+            image_url: itemImage,
+            is_active: itemStatus === 'true',
+            is_vegetarian: itemVegetarian,
+            is_vegan: itemVegan,
+            card_color: cardColor,
+            size_flag: finalSizeFlag,
+            portion_type: finalPortionType,
+            visual_priority: visualPriority
+        };
+        
+        // Send AJAX request to create menu item
+        fetch('/admin/create_menu_item', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(itemData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showNotification('Menu item created successfully!', 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addItemModal'));
+                modal.hide();
+                
+                // Reset form
+                document.getElementById('addItemModal').querySelector('form').reset();
+                
+                // Reload the page to show the new item
+                location.reload();
+            } else {
+                // Show error message
+                showNotification('Error creating menu item: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while creating the menu item', 'error');
+        });
+    });
+    
+    // Handle edit item button click
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.edit-item')) {
+            const button = e.target.closest('.edit-item');
+            const itemId = button.getAttribute('data-item-id');
+            const name = button.getAttribute('data-name');
+            const categoryId = button.getAttribute('data-category-id');
+            const price = button.getAttribute('data-price');
+            const description = button.getAttribute('data-description');
+            const imageUrl = button.getAttribute('data-image-url');
+            const isActive = button.getAttribute('data-is-active');
+            const isVegetarian = button.getAttribute('data-is-vegetarian');
+            const isVegan = button.getAttribute('data-is-vegan');
+            const cardColor = button.getAttribute('data-card-color');
+            const sizeFlag = button.getAttribute('data-size-flag');
+            const portionType = button.getAttribute('data-portion-type');
+            const visualPriority = button.getAttribute('data-visual-priority');
+            
+            // Populate edit modal with item data
+            document.getElementById('editItemId').value = itemId;
+            document.getElementById('editItemName').value = name;
+            document.getElementById('editItemCategory').value = categoryId;
+            document.getElementById('editItemPrice').value = price;
+            document.getElementById('editItemDescription').value = description;
+            document.getElementById('editItemImage').value = imageUrl || '';
+            document.getElementById('editItemStatus').value = isActive;
+            document.getElementById('editItemVegetarian').checked = isVegetarian === 'True';
+            document.getElementById('editItemVegan').checked = isVegan === 'True';
+            
+            // Populate visual customization fields
+            document.getElementById('editItemCardColor').value = cardColor || '#ffffff';
+            document.getElementById('editItemSizeFlag').value = sizeFlag || '';
+            document.getElementById('editItemPortionType').value = portionType || '';
+            document.getElementById('editItemVisualPriority').value = visualPriority || 'normal';
+            
+            // Check if this is a special item (طلبات خاصة category)
+            const categorySelect = document.getElementById('editItemCategory');
+            const selectedCategoryName = categorySelect.options[categorySelect.selectedIndex].text;
+            const isSpecialItem = selectedCategoryName === 'طلبات خاصة';
+            
+            // Show/hide customization options based on item type
+            const regularCustomization = document.getElementById('editItemRegularCustomization');
+            if (isSpecialItem) {
+                regularCustomization.style.display = 'none';
+                // Clear size and portion values for special items
+                document.getElementById('editItemSizeFlag').value = '';
+                document.getElementById('editItemPortionType').value = '';
+            } else {
+                regularCustomization.style.display = 'block';
+            }
+            
+            // Show edit modal
+            const editModal = new bootstrap.Modal(document.getElementById('editItemModal'));
+            editModal.show();
+        }
+    });
+    
+    // Handle save edit item button click
+    document.getElementById('saveEditItem').addEventListener('click', function() {
+        // Get form data
+        const itemId = document.getElementById('editItemId').value;
+        const itemName = document.getElementById('editItemName').value;
+        const itemCategory = document.getElementById('editItemCategory').value;
+        const itemPrice = document.getElementById('editItemPrice').value;
+        const itemDescription = document.getElementById('editItemDescription').value;
+        const itemImage = document.getElementById('editItemImage').value;
+        const itemStatus = document.getElementById('editItemStatus').value;
+        const isVegetarian = document.getElementById('editItemVegetarian').checked;
+        const isVegan = document.getElementById('editItemVegan').checked;
+        const cardColor = document.getElementById('editItemCardColor').value;
+        const sizeFlag = document.getElementById('editItemSizeFlag').value;
+        const portionType = document.getElementById('editItemPortionType').value;
+        const visualPriority = document.getElementById('editItemVisualPriority').value;
+        
+        // Validate required fields
+        if (!itemName || !itemCategory || !itemPrice) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        // Create item data object
+        const itemData = {
+            name: itemName,
+            category_id: itemCategory,
+            price: itemPrice,
+            description: itemDescription,
+            image_url: itemImage,
+            is_active: itemStatus === 'true',
+            is_vegetarian: isVegetarian,
+            is_vegan: isVegan,
+            card_color: cardColor,
+            size_flag: sizeFlag,
+            portion_type: portionType,
+            visual_priority: visualPriority
+        };
+        
+        // Send AJAX request to update menu item
+        fetch('/admin/update_menu_item/' + itemId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(itemData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showNotification('Menu item updated successfully!', 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editItemModal'));
+                modal.hide();
+                
+                // Reload the page to show the updated item
+                location.reload();
+            } else {
+                // Show error message
+                showNotification('Error updating menu item: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while updating the menu item', 'error');
+        });
+    });
+    
+    // Show notification function
+    function showNotification(message, type) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-' + (type === 'error' ? 'danger' : type) + ' alert-dismissible fade show position-fixed';
+        notification.style = 'top: 20px; right: 20px; z-index: 9999;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+    }
+    
+    // Quick Category Management - Full AJAX Implementation
+    let availableItems = [];
+    let quickItems = [];
+    let selectedItemIds = new Set();
+    
+    // Load Quick Category data
+    function loadQuickCategoryData() {
+        // Show loading state
+        document.getElementById('availableItemsContainer').innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2 mb-0">Loading available items...</p>
+            </div>
+        `;
+        
+        document.getElementById('quickItemsContainer').innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border spinner-border-sm text-success" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2 mb-0">Loading quick items...</p>
+            </div>
+        `;
+        
+        fetch('/admin/get_quick_category_data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    availableItems = data.available_items || [];
+                    quickItems = data.quick_items || [];
+                    renderAvailableItems();
+                    renderQuickItems();
+                    updateCounts();
+                } else {
+                    showNotification('Error loading Quick category data: ' + data.message, 'error');
+                    // Show error state
+                    document.getElementById('availableItemsContainer').innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="bi bi-exclamation-triangle text-warning" style="font-size: 2rem;"></i>
+                            <p class="text-muted mt-2 mb-0">Failed to load data</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Failed to load Quick category data', 'error');
+                // Show error state
+                document.getElementById('availableItemsContainer').innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="bi bi-exclamation-triangle text-warning" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2 mb-0">Failed to load data</p>
+                    </div>
+                `;
+            });
+    }
+    
+    // Render available items
+    function renderAvailableItems() {
+        const container = document.getElementById('availableItemsContainer');
+        const searchTerm = document.getElementById('searchAvailableItems').value.toLowerCase();
+        const categoryFilter = document.getElementById('filterByCategory').value;
+        
+        let filteredItems = availableItems.filter(item => {
+            const matchesSearch = item.name.toLowerCase().includes(searchTerm);
+            const matchesCategory = !categoryFilter || item.category_name === categoryFilter;
+            return matchesSearch && matchesCategory;
+        });
+        
+        if (filteredItems.length === 0) {
+            const noItemsMessage = availableItems.length === 0 
+                ? "No menu items available. Add items to categories first."
+                : "No items match your search criteria.";
+            
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="bi bi-inbox text-muted" style="font-size: 2rem;"></i>
+                    <p class="text-muted mt-2 mb-0">${noItemsMessage}</p>
+                    ${availableItems.length === 0 ? '<small class="text-muted">Go to the menu section below to add items to categories.</small>' : ''}
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = filteredItems.map(item => `
+            <div class="available-item-card" data-item-id="${item.id}">
+                <div class="form-check">
+                    <input class="form-check-input available-item-checkbox" type="checkbox" 
+                           value="${item.id}" id="available-${item.id}" 
+                           ${selectedItemIds.has(item.id.toString()) ? 'checked' : ''}>
+                    <label class="form-check-label w-100" for="available-${item.id}">
+                        <div class="item-info">
+                            <div class="item-name">${item.name}</div>
+                            <div class="item-meta">
+                                <span class="category-badge">${item.category_name}</span>
+                                <span class="price-badge">${item.price} QAR</span>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        `).join('');
+        
+        // Add event listeners for checkboxes
+        container.querySelectorAll('.available-item-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', handleItemSelection);
+        });
+    }
+    
+    // Render quick items
+    function renderQuickItems() {
+        const container = document.getElementById('quickItemsContainer');
+        
+        if (quickItems.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="bi bi-lightning text-muted" style="font-size: 2rem;"></i>
+                    <p class="text-muted mt-2 mb-0">No items in Quick category</p>
+                    <small class="text-muted">Add items from the left panel</small>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = quickItems.map(item => `
+            <div class="quick-item-card" data-item-id="${item.id}">
+                <div class="item-info">
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-meta">
+                        <span class="price-badge">${item.price} QAR</span>
+                        ${item.original_category_name ? `<span class="origin-badge">from ${item.original_category_name}</span>` : ''}
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-from-quick" 
+                        data-item-id="${item.id}" title="Remove from Quick category">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        `).join('');
+        
+        // Add event listeners for remove buttons
+        container.querySelectorAll('.remove-from-quick').forEach(button => {
+            button.addEventListener('click', handleRemoveFromQuick);
+        });
+    }
+    
+    // Handle item selection
+    function handleItemSelection(e) {
+        const itemId = e.target.value;
+        if (e.target.checked) {
+            selectedItemIds.add(itemId);
+        } else {
+            selectedItemIds.delete(itemId);
+        }
+        updateSelectedCount();
+    }
+    
+    // Update counts and button states
+    function updateCounts() {
+        document.getElementById('availableItemsCount').textContent = `${availableItems.length} items`;
+        document.getElementById('quickItemsCount').textContent = `${quickItems.length} items`;
+    }
+    
+    function updateSelectedCount() {
+        const count = selectedItemIds.size;
+        document.getElementById('selectedCount').textContent = count;
+        document.getElementById('addToQuickBtn').disabled = count === 0;
+    }
+    
+    // Add selected items to Quick category
+    function addToQuickCategory() {
+        if (selectedItemIds.size === 0) {
+            showNotification('Please select at least one item to add to Quick category', 'warning');
+            return;
+        }
+        
+        const button = document.getElementById('addToQuickBtn');
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Adding...';
+        
+        const itemIds = Array.from(selectedItemIds);
+        
+        fetch('/admin/add_to_quick_category', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ item_ids: itemIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Successfully added ${data.added_count} item(s) to Quick category!`, 'success');
+                selectedItemIds.clear();
+                loadQuickCategoryData(); // Refresh data
+            } else {
+                showNotification('Error adding items to Quick category: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while adding items to Quick category', 'error');
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = originalText;
+            updateSelectedCount();
+        });
+    }
+    
+    // Remove item from Quick category
+    function handleRemoveFromQuick(e) {
+        const button = e.target.closest('.remove-from-quick');
+        const itemId = button.getAttribute('data-item-id');
+        const itemCard = button.closest('.quick-item-card');
+        const itemName = itemCard.querySelector('.item-name').textContent;
+        
+        if (confirm(`Are you sure you want to remove "${itemName}" from the Quick category?`)) {
+            button.disabled = true;
+            button.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+            
+            fetch('/admin/remove_from_quick_category', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ item_id: itemId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Item removed from Quick category successfully!', 'success');
+                    loadQuickCategoryData(); // Refresh data
+                } else {
+                    showNotification('Error removing item from Quick category: ' + data.message, 'error');
+                    button.disabled = false;
+                    button.innerHTML = '<i class="bi bi-x"></i>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred while removing item from Quick category', 'error');
+                button.disabled = false;
+                button.innerHTML = '<i class="bi bi-x"></i>';
+            });
+        }
+    }
+    
+    // Event listeners for Quick Category Management
+    document.getElementById('addToQuickBtn').addEventListener('click', addToQuickCategory);
+    document.getElementById('refreshQuickData').addEventListener('click', loadQuickCategoryData);
+    
+    document.getElementById('searchAvailableItems').addEventListener('input', renderAvailableItems);
+    document.getElementById('filterByCategory').addEventListener('change', renderAvailableItems);
+    
+    document.getElementById('selectAllItems').addEventListener('click', function() {
+        const checkboxes = document.querySelectorAll('.available-item-checkbox:not(:checked)');
+        checkboxes.forEach(cb => {
+            cb.checked = true;
+            selectedItemIds.add(cb.value);
+        });
+        updateSelectedCount();
+    });
+    
+    document.getElementById('clearSelection').addEventListener('click', function() {
+        selectedItemIds.clear();
+        document.querySelectorAll('.available-item-checkbox').forEach(cb => cb.checked = false);
+        updateSelectedCount();
+    });
+    
+    // Load initial data
+    loadQuickCategoryData();
+    
+    // 2D Table Planner Functions
+    let tables = [];
+    let selectedTables = new Set();
+    let currentZoom = 1;
+    let gridVisible = false;
+    let contextMenuTable = null;
+    
+    // Load tables data and render in 2D planner
+    function loadTablesData() {
+        const restaurantFloor = document.querySelector('.restaurant-floor');
+        restaurantFloor.innerHTML = `
+            <div class="loading-state text-center">
+                <div class="spinner-border spinner-border-sm text-success" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-muted mt-2 mb-0">Loading restaurant layout...</p>
+            </div>
+        `;
+        
+        fetch('/admin/get_tables_data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    tables = data.tables || [];
+                    renderTablePlanner();
+                    updateTableCount();
+                } else {
+                    showNotification('Error loading tables: ' + data.message, 'error');
+                    restaurantFloor.innerHTML = `
+                        <div class="text-center py-4">
+                            <i class="bi bi-exclamation-triangle text-warning" style="font-size: 2rem;"></i>
+                            <p class="text-muted mt-2 mb-0">Failed to load tables</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Failed to load tables', 'error');
+                restaurantFloor.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="bi bi-exclamation-triangle text-warning" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2 mb-0">Failed to load tables</p>
+                    </div>
+                `;
+            });
+    }
+    
+    // Render tables in 2D planner
+    function renderTablePlanner() {
+        const restaurantFloor = document.querySelector('.restaurant-floor');
+        
+        if (tables.length === 0) {
+            restaurantFloor.innerHTML = `
+                <div class="text-center py-4" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                    <i class="bi bi-table text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-2 mb-0">No tables in restaurant</p>
+                    <small class="text-muted">Click "Add Table" to create your first table</small>
+                </div>
+            `;
+            return;
+        }
+        
+        restaurantFloor.innerHTML = '';
+        
+        tables.forEach((table, index) => {
+            const tableElement = createTableElement(table, index);
+            restaurantFloor.appendChild(tableElement);
+        });
+    }
+    
+    // Create visual table element with chairs
+    function createTableElement(table, index) {
+        const tableDiv = document.createElement('div');
+        tableDiv.className = 'draggable-table';
+        tableDiv.setAttribute('data-table-id', table.id);
+        
+        // Position tables in a grid if no saved position
+        const savedPosition = getSavedTablePosition(table.id);
+        if (savedPosition) {
+            tableDiv.style.left = savedPosition.x + 'px';
+            tableDiv.style.top = savedPosition.y + 'px';
+        } else {
+            // Calculate grid based on actual floor width
+            const floorElement = document.querySelector('.restaurant-floor');
+            const floorWidth = floorElement ? floorElement.offsetWidth : 800;
+            const isExtraSmall = window.innerWidth <= 480;
+            const isMobile = window.innerWidth <= 768;
+            
+            let tableSpacing, marginOffset;
+            if (isExtraSmall) {
+                tableSpacing = 45; // Very compact for phones
+                marginOffset = 20;
+            } else if (isMobile) {
+                tableSpacing = 50; // Compact for tablets
+                marginOffset = 25;
+            } else {
+                tableSpacing = 90; // Normal for desktop
+                marginOffset = 50;
+            }
+            
+            const tablesPerRow = Math.floor((floorWidth - marginOffset * 2) / tableSpacing);
+            
+            const gridX = (index % tablesPerRow) * tableSpacing + marginOffset;
+            const gridY = Math.floor(index / tablesPerRow) * tableSpacing + marginOffset;
+            tableDiv.style.left = gridX + 'px';
+            tableDiv.style.top = gridY + 'px';
+        }
+        
+        // Determine table shape based on capacity
+        let tableShape = 'round';
+        if (table.capacity >= 8) tableShape = 'rectangle';
+        else if (table.capacity >= 6) tableShape = 'square';
+        
+        // Create table visual
+        const tableVisual = document.createElement('div');
+        tableVisual.className = `table-visual ${tableShape}`;
+        
+        // Table number
+        const tableNumber = document.createElement('div');
+        tableNumber.className = 'table-number';
+        tableNumber.textContent = table.table_number;
+        tableVisual.appendChild(tableNumber);
+        
+        // Status indicator
+        const statusIndicator = document.createElement('div');
+        statusIndicator.className = `table-status-indicator ${table.is_active ? 'active' : 'inactive'}`;
+        tableVisual.appendChild(statusIndicator);
+        
+        tableDiv.appendChild(tableVisual);
+        
+        // Add chairs around the table
+        for (let i = 0; i < Math.min(table.capacity, 8); i++) {
+            const chair = document.createElement('div');
+            chair.className = 'chair';
+            tableDiv.appendChild(chair);
+        }
+        
+        // Add event listeners
+        setupTableEventListeners(tableDiv, table);
+        
+        return tableDiv;
+    }
+    
+    // Global variables for drag state
+    let dragState = {
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        initialX: 0,
+        initialY: 0,
+        draggedElement: null,
+        isTouchDevice: 'ontouchstart' in window || navigator.maxTouchPoints > 0
+    };
+    
+    // Setup event listeners for table interactions
+    function setupTableEventListeners(tableElement, table) {
+        let touchStartTime = 0;
+        let touchMoved = false;
+        
+        // Mouse down - start drag
+        tableElement.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // Only left click
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            startDrag(e.clientX, e.clientY, tableElement);
+        });
+        
+        // Touch start - start drag for mobile
+        tableElement.addEventListener('touchstart', (e) => {
+            // Only prevent default for table elements, not the whole page
+            if (e.target.closest('.draggable-table')) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                touchStartTime = Date.now();
+                touchMoved = false;
+                
+                const touch = e.touches[0];
+                startDrag(touch.clientX, touch.clientY, tableElement);
+            }
+        }, { passive: false });
+        
+        // Common drag start function
+        function startDrag(clientX, clientY, element) {
+            // Initialize drag state
+            dragState.isDragging = true;
+            dragState.draggedElement = element;
+            element.classList.add('dragging');
+            
+            const rect = element.getBoundingClientRect();
+            const plannerRect = document.querySelector('.restaurant-floor').getBoundingClientRect();
+            
+            dragState.startX = clientX;
+            dragState.startY = clientY;
+            dragState.initialX = rect.left - plannerRect.left;
+            dragState.initialY = rect.top - plannerRect.top;
+            
+            // Select table (no multi-select on touch)
+            if (!dragState.isTouchDevice) {
+                if (!event.ctrlKey && !event.metaKey) {
+                    clearSelection();
+                }
+            } else {
+                clearSelection();
+            }
+            selectTable(element);
+            
+            // Change cursor (desktop only)
+            if (!dragState.isTouchDevice) {
+                document.body.style.cursor = 'grabbing';
+            }
+            
+            // Add visual feedback for touch
+            element.style.transform = 'scale(1.1)';
+        }
+        
+        // Double click - edit table
+        tableElement.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!dragState.isDragging) {
+                editTable(table);
+            }
+        });
+        
+        // Touch end - handle tap vs drag
+        tableElement.addEventListener('touchend', (e) => {
+            // Only handle touch end for table elements during drag operations
+            if (e.target.closest('.draggable-table') && (dragState.isDragging || touchStartTime > 0)) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const touchDuration = Date.now() - touchStartTime;
+                
+                // Long press for context menu (500ms)
+                if (touchDuration > 500 && !touchMoved) {
+                    showContextMenu({
+                        pageX: e.changedTouches[0].pageX,
+                        pageY: e.changedTouches[0].pageY
+                    }, table);
+                    return;
+                }
+                
+                // Double tap for edit (within 300ms of previous tap)
+                if (touchDuration < 300 && !touchMoved) {
+                    const now = Date.now();
+                    if (tableElement.lastTapTime && (now - tableElement.lastTapTime) < 300) {
+                        editTable(table);
+                        tableElement.lastTapTime = 0;
+                    } else {
+                        tableElement.lastTapTime = now;
+                    }
+                }
+            }
+        }, { passive: false });
+        
+        // Right click - context menu (desktop)
+        tableElement.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showContextMenu(e, table);
+        });
+        
+        // Hover effects (desktop only)
+        if (!dragState.isTouchDevice) {
+            tableElement.addEventListener('mouseenter', () => {
+                if (!dragState.isDragging) {
+                    tableElement.style.transform = 'scale(1.05)';
+                    tableElement.style.cursor = 'grab';
+                }
+            });
+            
+            tableElement.addEventListener('mouseleave', () => {
+                if (!dragState.isDragging) {
+                    tableElement.style.transform = '';
+                    tableElement.style.cursor = 'move';
+                }
+            });
+        }
+    }
+    
+    // Global touch tracking
+    let touchMoved = false;
+    
+    // Common move handler for both mouse and touch
+    function handleMove(clientX, clientY) {
+        if (!dragState.isDragging || !dragState.draggedElement) return;
+        
+        const deltaX = clientX - dragState.startX;
+        const deltaY = clientY - dragState.startY;
+        
+        // Mark as moved for touch events
+        if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+            touchMoved = true;
+        }
+        
+        const selectedElements = document.querySelectorAll('.draggable-table.selected');
+        selectedElements.forEach(element => {
+            // Calculate new position relative to the dragged element
+            const elementRect = element.getBoundingClientRect();
+            const plannerRect = document.querySelector('.restaurant-floor').getBoundingClientRect();
+            
+            let newX, newY;
+            
+            if (element === dragState.draggedElement) {
+                newX = dragState.initialX + deltaX;
+                newY = dragState.initialY + deltaY;
+            } else {
+                // For other selected elements, maintain relative position
+                const currentX = elementRect.left - plannerRect.left;
+                const currentY = elementRect.top - plannerRect.top;
+                newX = currentX + deltaX * 0.1; // Reduced movement for non-primary elements
+                newY = currentY + deltaY * 0.1;
+            }
+            
+            // Constrain to bounds - dynamically calculate based on floor size
+            const floorRect = document.querySelector('.restaurant-floor').getBoundingClientRect();
+            const isExtraSmall = window.innerWidth <= 480;
+            const isMobile = window.innerWidth <= 768;
+            
+            let tableSize;
+            if (isExtraSmall) {
+                tableSize = 35; // Extra small phones
+            } else if (isMobile) {
+                tableSize = 40; // Mobile tablets
+            } else if (dragState.isTouchDevice) {
+                tableSize = 70; // Touch devices
+            } else {
+                tableSize = 80; // Desktop
+            }
+            
+            const maxX = floorRect.width - tableSize - 15; // Account for table width + margin
+            const maxY = floorRect.height - tableSize - 15; // Account for table height + margin
+            
+            newX = Math.max(0, Math.min(maxX, newX));
+            newY = Math.max(0, Math.min(maxY, newY));
+            
+            // Snap to grid if enabled
+            if (gridVisible) {
+                newX = Math.round(newX / 20) * 20;
+                newY = Math.round(newY / 20) * 20;
+            }
+            
+            element.style.left = newX + 'px';
+            element.style.top = newY + 'px';
+        });
+    }
+    
+    // Global mouse move handler
+    document.addEventListener('mousemove', (e) => {
+        if (dragState.isDragging) {
+            e.preventDefault();
+            handleMove(e.clientX, e.clientY);
+        }
+    });
+    
+    // Global touch move handler
+    document.addEventListener('touchmove', (e) => {
+        if (dragState.isDragging && e.touches.length === 1) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleMove(touch.clientX, touch.clientY);
+        }
+    }, { passive: false });
+    
+    // Common end handler for both mouse and touch
+    function handleEnd() {
+        if (dragState.isDragging) {
+            const selectedElements = document.querySelectorAll('.draggable-table.selected');
+            selectedElements.forEach(element => {
+                element.classList.remove('dragging');
+                element.style.transform = dragState.isTouchDevice ? '' : 'scale(1.05)';
+                if (!dragState.isTouchDevice) {
+                    element.style.cursor = 'grab';
+                }
+                
+                // Save position
+                const tableId = element.getAttribute('data-table-id');
+                const rect = element.getBoundingClientRect();
+                const plannerRect = document.querySelector('.restaurant-floor').getBoundingClientRect();
+                
+                saveTablePosition(tableId, {
+                    x: rect.left - plannerRect.left,
+                    y: rect.top - plannerRect.top
+                });
+            });
+            
+            // Reset drag state
+            dragState.isDragging = false;
+            dragState.draggedElement = null;
+            if (!dragState.isTouchDevice) {
+                document.body.style.cursor = '';
+            }
+        }
+    }
+    
+    // Global mouse up handler
+    document.addEventListener('mouseup', (e) => {
+        if (dragState.isDragging) {
+            e.preventDefault();
+        }
+        handleEnd();
+    });
+    
+    // Global touch end handler
+    document.addEventListener('touchend', (e) => {
+        if (dragState.isDragging) {
+            e.preventDefault();
+        }
+        handleEnd();
+    }, { passive: false });
+    
+    // Prevent text selection during drag
+    document.addEventListener('selectstart', (e) => {
+        if (dragState.isDragging) {
+            e.preventDefault();
+        }
+    });
+    
+    // Table selection functions
+    function selectTable(tableElement) {
+        tableElement.classList.add('selected');
+        const tableId = tableElement.getAttribute('data-table-id');
+        selectedTables.add(tableId);
+    }
+    
+    function clearSelection() {
+        document.querySelectorAll('.draggable-table.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+        selectedTables.clear();
+    }
+    
+    // Context menu functions
+    function showContextMenu(e, table) {
+        const contextMenu = document.getElementById('contextMenu');
+        contextMenuTable = table;
+        
+        contextMenu.style.display = 'block';
+        
+        // Position context menu with viewport boundary checking
+        let x = e.pageX;
+        let y = e.pageY;
+        
+        // Adjust for viewport boundaries
+        const menuRect = contextMenu.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        if (x + menuRect.width > viewportWidth) {
+            x = viewportWidth - menuRect.width - 10;
+        }
+        if (y + menuRect.height > viewportHeight) {
+            y = viewportHeight - menuRect.height - 10;
+        }
+        
+        contextMenu.style.left = Math.max(10, x) + 'px';
+        contextMenu.style.top = Math.max(10, y) + 'px';
+        
+        // Add touch-friendly styling for mobile
+        if (dragState.isTouchDevice) {
+            contextMenu.style.fontSize = '18px';
+            contextMenu.style.minWidth = '200px';
+        }
+    }
+    
+    function hideContextMenu() {
+        document.getElementById('contextMenu').style.display = 'none';
+        contextMenuTable = null;
+    }
+    
+    // Position persistence
+    function saveTablePosition(tableId, position) {
+        const positions = JSON.parse(localStorage.getItem('tablePositions') || '{}');
+        positions[tableId] = position;
+        localStorage.setItem('tablePositions', JSON.stringify(positions));
+    }
+    
+    function getSavedTablePosition(tableId) {
+        const positions = JSON.parse(localStorage.getItem('tablePositions') || '{}');
+        return positions[tableId];
+    }
+    
+    // Update table count display
+    function updateTableCount() {
+        document.getElementById('tableCount').textContent = `${tables.length} tables`;
+    }
+    
+    // Add table
+    document.getElementById('saveTable').addEventListener('click', function() {
+        const tableNumber = document.getElementById('tableNumber').value.trim();
+        const capacity = document.getElementById('tableCapacity').value;
+        const description = document.getElementById('tableDescription').value.trim();
+        
+        if (!tableNumber || !capacity) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        const button = this;
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Adding...';
+        
+        fetch('/admin/create_table', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                table_number: tableNumber,
+                capacity: parseInt(capacity),
+                description: description
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Table added successfully!', 'success');
+                
+                // Close modal and reset form
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addTableModal'));
+                modal.hide();
+                document.getElementById('addTableModal').querySelector('form').reset();
+                
+                // Reload tables
+                loadTablesData();
+            } else {
+                showNotification('Error adding table: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while adding the table', 'error');
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+    });
+    
+    // Edit table
+    document.getElementById('saveEditTable').addEventListener('click', function() {
+        const tableId = document.getElementById('editTableId').value;
+        const tableNumber = document.getElementById('editTableNumber').value.trim();
+        const capacity = document.getElementById('editTableCapacity').value;
+        const description = document.getElementById('editTableDescription').value.trim();
+        const isActive = document.getElementById('editTableStatus').value === 'true';
+        
+        if (!tableNumber || !capacity) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        const button = this;
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
+        
+        fetch('/admin/update_table/' + tableId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                table_number: tableNumber,
+                capacity: parseInt(capacity),
+                description: description,
+                is_active: isActive
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Table updated successfully!', 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editTableModal'));
+                modal.hide();
+                
+                // Reload tables
+                loadTablesData();
+            } else {
+                showNotification('Error updating table: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while updating the table', 'error');
+        })
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+    });
+    
+    // Delete table
+    document.getElementById('deleteTable').addEventListener('click', function() {
+        const tableId = document.getElementById('editTableId').value;
+        const tableNumber = document.getElementById('editTableNumber').value;
+        
+        if (confirm(`Are you sure you want to delete table "${tableNumber}"? This action cannot be undone.`)) {
+            const button = this;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
+            
+            fetch('/admin/delete_table/' + tableId, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Table deleted successfully!', 'success');
+                    
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editTableModal'));
+                    modal.hide();
+                    
+                    // Reload tables
+                    loadTablesData();
+                } else {
+                    showNotification('Error deleting table: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred while deleting the table', 'error');
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.innerHTML = originalText;
+            });
+        }
+    });
+    
+    // Toolbar controls
+    document.getElementById('gridToggle').addEventListener('click', function() {
+        gridVisible = !gridVisible;
+        const gridOverlay = document.getElementById('gridOverlay');
+        const button = this;
+        
+        if (gridVisible) {
+            gridOverlay.classList.add('active');
+            button.classList.remove('btn-outline-primary');
+            button.classList.add('btn-primary');
+        } else {
+            gridOverlay.classList.remove('active');
+            button.classList.remove('btn-primary');
+            button.classList.add('btn-outline-primary');
+        }
+    });
+    
+    document.getElementById('resetLayout').addEventListener('click', function() {
+        if (confirm('Reset all table positions to default grid layout?')) {
+            localStorage.removeItem('tablePositions');
+            renderTablePlanner();
+            showNotification('Table layout reset to default', 'success');
+        }
+    });
+    
+    // Zoom controls
+    document.getElementById('zoomIn').addEventListener('click', function() {
+        currentZoom = Math.min(2, currentZoom + 0.1);
+        updateZoom();
+    });
+    
+    document.getElementById('zoomOut').addEventListener('click', function() {
+        currentZoom = Math.max(0.5, currentZoom - 0.1);
+        updateZoom();
+    });
+    
+    function updateZoom() {
+        const planner = document.getElementById('tablePlanner');
+        planner.style.transform = `scale(${currentZoom})`;
+        document.querySelector('.zoom-level').textContent = Math.round(currentZoom * 100) + '%';
+    }
+    
+    // Context menu handlers
+    document.getElementById('editTableMenu').addEventListener('click', function() {
+        if (contextMenuTable) {
+            editTable(contextMenuTable);
+        }
+        hideContextMenu();
+    });
+    
+    document.getElementById('duplicateTableMenu').addEventListener('click', function() {
+        if (contextMenuTable) {
+            duplicateTable(contextMenuTable);
+        }
+        hideContextMenu();
+    });
+    
+    document.getElementById('deleteTableMenu').addEventListener('click', function() {
+        if (contextMenuTable) {
+            deleteTableFromContext(contextMenuTable);
+        }
+        hideContextMenu();
+    });
+    
+    // Hide context menu on click outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.context-menu')) {
+            hideContextMenu();
+        }
+    });
+    
+    // Helper functions
+    function editTable(table) {
+        document.getElementById('editTableId').value = table.id;
+        document.getElementById('editTableNumber').value = table.table_number;
+        document.getElementById('editTableCapacity').value = table.capacity;
+        document.getElementById('editTableDescription').value = table.description || '';
+        document.getElementById('editTableStatus').value = table.is_active;
+        
+        const editModal = new bootstrap.Modal(document.getElementById('editTableModal'));
+        editModal.show();
+    }
+    
+    function duplicateTable(table) {
+        document.getElementById('tableNumber').value = table.table_number + '_copy';
+        document.getElementById('tableCapacity').value = table.capacity;
+        document.getElementById('tableDescription').value = (table.description || '') + ' (Copy)';
+        
+        const addModal = new bootstrap.Modal(document.getElementById('addTableModal'));
+        addModal.show();
+    }
+    
+    function deleteTableFromContext(table) {
+        if (confirm(`Are you sure you want to delete table "${table.table_number}"?`)) {
+            fetch('/admin/delete_table/' + table.id, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Table deleted successfully!', 'success');
+                    loadTablesData();
+                } else {
+                    showNotification('Error deleting table: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('An error occurred while deleting the table', 'error');
+            });
+        }
+    }
+    
+    // Handle window resize to adjust table positions
+    let resizeTimeout;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function() {
+            // Re-render tables to adjust for new screen size
+            renderTablePlanner();
+        }, 250);
+    });
+    
+    // Debug function for mobile visibility
+    function debugTableVisibility() {
+        const tables = document.querySelectorAll('.draggable-table');
+        console.log('Total tables found:', tables.length);
+        console.log('Is touch device:', dragState.isTouchDevice);
+        console.log('Window width:', window.innerWidth);
+        
+        tables.forEach((table, index) => {
+            const rect = table.getBoundingClientRect();
+            const styles = window.getComputedStyle(table);
+            console.log(`Table ${index}:`, {
+                display: styles.display,
+                visibility: styles.visibility,
+                opacity: styles.opacity,
+                width: styles.width,
+                height: styles.height,
+                position: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
+            });
+        });
+    }
+    
+    // Load initial tables data
+    loadTablesData();
+    
+    // Debug on mobile devices
+    if (dragState.isTouchDevice) {
+        setTimeout(debugTableVisibility, 2000);
+    }
+    
+    // Delivery Company Management Functions
+    function loadDeliveryCompanies() {
+        fetch('/admin/get_delivery_companies')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderDeliveryCompanies(data.companies);
+                } else {
+                    console.error('Error loading delivery companies:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+    
+    function renderDeliveryCompanies(companies) {
+        const container = document.getElementById('deliveryCompaniesContainer');
+        
+        if (companies.length === 0) {
+            container.innerHTML = `
+                <div class="col-12 text-center py-4">
+                    <i class="bi bi-truck text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-2 mb-0">No delivery companies configured</p>
+                    <small class="text-muted">Add your first delivery company to get started</small>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        companies.forEach(company => {
+            html += `
+                <div class="col-md-3 col-sm-6 mb-3">
+                    <div class="card h-100 shadow-sm ${company.is_active ? '' : 'border-secondary'}">
+                        <div class="card-body text-center ${company.is_active ? '' : 'text-muted'}">
+                            <div class="mb-3">
+                                <i class="${company.icon || 'bi-truck'} ${company.is_active ? 'text-info' : 'text-secondary'}" style="font-size: 2.5rem;"></i>
+                            </div>
+                            <h6 class="card-title">${company.name} ${company.is_active ? '' : '(Inactive)'}</h6>
+                            <p class="card-text">
+                                <small class="text-muted">Value: <code>${company.value}</code></small>
+                            </p>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button class="btn btn-outline-${company.is_active ? 'warning' : 'success'} btn-sm" data-company-value="${company.value}" data-company-name="${company.name}" data-company-active="${company.is_active}" onclick="window.toggleDeliveryCompany('${company.value}', '${company.name}', ${company.is_active})">
+                                    <i class="bi bi-${company.is_active ? 'pause' : 'play'}-circle"></i> ${company.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                                <button class="btn btn-outline-primary btn-sm edit-icon-btn" 
+                                        data-company-value="${company.value}"
+                                        data-company-name="${company.name}"
+                                        data-company-icon="${company.icon || ''}">
+                                    <i class="bi bi-brush"></i> Icon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    // Make function globally accessible
+    window.toggleDeliveryCompany = function(value, name, isActive) {
+        const action = isActive ? 'deactivate' : 'activate';
+        const actionText = isActive ? 'deactivated' : 'activated';
+        
+        fetch('/admin/toggle_delivery_company', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ value: value, is_active: !isActive })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(`Delivery company ${actionText} successfully!`, 'success');
+                loadDeliveryCompanies();
+            } else {
+                showNotification(`Error ${action}ing delivery company: ` + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification(`An error occurred while ${action}ing the delivery company`, 'error');
+        });
+    }
+
+    // Delivery Company Icon Edit
+    window.openEditIconModal = function(value, currentIcon, name) {
+        // Extract a 'bi-*' class from currentIcon if present
+        let biIcon = '';
+        if (currentIcon) {
+            const parts = currentIcon.split(' ');
+            const found = parts.find(p => p.startsWith('bi-'));
+            biIcon = found || '';
+        }
+        const valueInput = document.getElementById('editIconCompanyValue');
+        const nameSpan = document.getElementById('editIconCompanyName');
+        const select = document.getElementById('editIconSelect');
+        if (!valueInput || !nameSpan || !select) {
+            console.error('Edit icon modal elements not found');
+            return;
+        }
+        valueInput.value = value;
+        nameSpan.textContent = name;
+        if (biIcon) {
+            for (const opt of select.options) {
+                opt.selected = (opt.value === biIcon);
+            }
+        } else {
+            select.selectedIndex = 0;
+        }
+        const modal = new bootstrap.Modal(document.getElementById('editDeliveryIconModal'));
+        modal.show();
+    }
+
+    // Delegate click for edit icon buttons
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.edit-icon-btn');
+        if (!btn) return;
+        const value = btn.getAttribute('data-company-value');
+        const name = btn.getAttribute('data-company-name');
+        const icon = btn.getAttribute('data-company-icon') || '';
+        window.openEditIconModal(value, icon, name);
+    });
+
+    const saveIconBtn = document.getElementById('saveEditIconBtn');
+    if (saveIconBtn) {
+        saveIconBtn.addEventListener('click', function() {
+            const value = document.getElementById('editIconCompanyValue').value;
+            const icon = document.getElementById('editIconSelect').value;
+            fetch('/admin/update_delivery_company_icon', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value, icon })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Icon updated successfully', 'success');
+                    const modalEl = document.getElementById('editDeliveryIconModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    modal.hide();
+                    loadDeliveryCompanies();
+                } else {
+                    showNotification('Error updating icon: ' + data.message, 'error');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showNotification('An error occurred while updating icon', 'error');
+            });
+        });
+    }
+    
+    // Function to show detailed messages in a modal
+    function showDetailedMessage(title, message) {
+        // Create a temporary modal for detailed messages
+        const modalHtml = `
+            <div class="modal fade" id="detailedMessageModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${title}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <pre style="white-space: pre-wrap; font-family: monospace; background: #f8f9fa; padding: 15px; border-radius: 5px;">${message}</pre>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('detailedMessageModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body and show
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = new bootstrap.Modal(document.getElementById('detailedMessageModal'));
+        modal.show();
+        
+        // Clean up when modal is hidden
+        document.getElementById('detailedMessageModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+
+    // Load delivery companies on page load
+    loadDeliveryCompanies();
+    
+    // Add delivery company form submission
+    document.getElementById('addDeliveryCompanyForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const companyData = {
+            name: formData.get('name'),
+            value: formData.get('value'),
+            icon: formData.get('icon')
+        };
+        
+        fetch('/admin/add_delivery_company', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(companyData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Delivery company added successfully!', 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addDeliveryCompanyModal'));
+                modal.hide();
+                this.reset();
+                loadDeliveryCompanies();
+            } else {
+                // Show detailed message in a modal for better readability
+                if (data.message.includes('models.py')) {
+                    showDetailedMessage('Add Delivery Company', data.message);
+                } else {
+                    showNotification('Error: ' + data.message, 'error');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while adding the delivery company', 'error');
+        });
+    });
+});
+</script>
+{% endblock %}

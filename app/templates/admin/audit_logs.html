@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Logs - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1>Audit Logs</h1>
+        
+        <!-- Filters -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="logsFilterForm" class="row g-3">
+                    {% if current_user.role.name == 'SUPER_USER' %}
+                    <div class="col-md-2">
+                        <label for="branchFilter" class="form-label">Branch</label>
+                        <select class="form-select" id="branchFilter" name="branch_id">
+                            <option value="">All Branches</option>
+                            {% for branch in branches %}
+                            <option value="{{ branch.id }}" {% if filters.branch_id == branch.id %}selected{% endif %}>
+                                {{ branch.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="col-md-3">
+                        <label for="userFilter" class="form-label">User</label>
+                        <select class="form-select" id="userFilter" name="user_id">
+                            <option value="">All Users</option>
+                            {% for user in users %}
+                            <option value="{{ user.id }}" {% if filters.user_id == user.id|string() %}selected{% endif %}>
+                                {{ user.username }} ({{ user.get_full_name() }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="actionFilter" class="form-label">Action</label>
+                        <select class="form-select" id="actionFilter" name="action">
+                            <option value="">All Actions</option>
+                            {% for action in actions %}
+                            <option value="{{ action }}" {% if filters.action == action %}selected{% endif %}>
+                                {{ action.replace('_', ' ').title() }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="dateFrom" class="form-label">From</label>
+                        <input type="date" class="form-control" id="dateFrom" name="date_from" 
+                               value="{{ filters.date_from }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="dateTo" class="form-label">To</label>
+                        <input type="date" class="form-control" id="dateTo" name="date_to" 
+                               value="{{ filters.date_to }}">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="btn-group w-100" role="group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-funnel"></i> Filter
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearFilters">
+                                <i class="bi bi-x-circle"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                {% if current_user.role.name == 'SUPER_USER' %}
+                                <th>Branch</th>
+                                <th>Role</th>
+                                {% endif %}
+                                <th>Action</th>
+                                <th>Description</th>
+                                <th>IP Address</th>
+                                <th>Date/Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                            {% for log in logs.items %}
+                            <tr>
+                                <td>
+                                    <div>{{ log.user.username if log.user else 'System' }}</div>
+                                    <small class="text-muted">{{ log.user.get_full_name() if log.user else '' }}</small>
+                                </td>
+                                {% if current_user.role.name == 'SUPER_USER' %}
+                                <td>
+                                    {% if log.user and log.user.branch %}
+                                        <span class="badge bg-secondary">{{ log.user.branch.name }}</span>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.user %}
+                                        {% if log.user.role.value == 'super_user' %}
+                                            <span class="badge bg-danger">Super User</span>
+                                        {% elif log.user.role.value == 'branch_admin' %}
+                                            <span class="badge bg-primary">Branch Admin</span>
+                                        {% elif log.user.role.value == 'cashier' %}
+                                            <span class="badge bg-success">Cashier</span>
+                                        {% elif log.user.role.value == 'waiter' %}
+                                            <span class="badge bg-info">Waiter</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ log.user.role.value.replace('_', ' ').title() }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                                <td>
+                                    <span class="badge bg-{{ 'success' if log.action == 'login' else 'danger' if log.action == 'logout' else 'warning' if log.action == 'ORDER_EDITED' else 'primary' }}">
+                                        {% if log.action == 'ORDER_EDITED' %}
+                                            <i class="bi bi-pencil-square me-1"></i>
+                                        {% endif %}
+                                        {{ log.action.replace('_', ' ').title() }}
+                                    </span>
+                                </td>
+                                <td>{{ log.description or '' }}</td>
+                                <td>{{ log.ip_address or 'N/A' }}</td>
+                                <td>
+                                    <div>{{ log.created_at | local_datetime_short }}</div>
+                                    <small class="text-muted">{{ log.created_at | local_datetime_short }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <nav aria-label="Logs pagination" id="logsPagination">
+                    <ul class="pagination justify-content-center">
+                        {% if logs.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="#" data-page="{{ logs.prev_num }}">Previous</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Previous</span>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in logs.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != logs.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="#" data-page="{{ page_num }}">{{ page_num }}</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if logs.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="#" data-page="{{ logs.next_num }}">Next</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Next</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Set global variable for superuser check
+window.isSuperUser = {% if current_user.role.name == 'SUPER_USER' %}true{% else %}false{% endif %};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle form submission with AJAX
+    document.getElementById('logsFilterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        loadLogs(1);
+    });
+    
+    // Clear filters
+    document.getElementById('clearFilters').addEventListener('click', function() {
+        document.getElementById('logsFilterForm').reset();
+        loadLogs(1);
+    });
+    
+    // Handle pagination clicks
+    document.getElementById('logsPagination').addEventListener('click', function(e) {
+        if (e.target.tagName === 'A' && e.target.dataset.page) {
+            e.preventDefault();
+            loadLogs(parseInt(e.target.dataset.page));
+        }
+    });
+    
+    // Load logs with AJAX
+    function loadLogs(page = 1) {
+        const formData = new FormData(document.getElementById('logsFilterForm'));
+        const params = new URLSearchParams();
+        for (const [key, value] of formData) {
+            if (value) {
+                params.append(key, value);
+            }
+        }
+        params.append('page', page);
+        params.append('per_page', 10);
+        
+        fetch(`{% if current_user.role.name == 'SUPER_USER' %}{{ url_for('superuser.audit_logs') }}{% else %}{{ url_for('admin.audit_logs') }}{% endif %}?${params.toString()}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update table body
+            const tableBody = document.getElementById('logsTableBody');
+            tableBody.innerHTML = '';
+            
+            data.logs.forEach(log => {
+                const row = document.createElement('tr');
+                
+                // Determine badge class based on action
+                let badgeClass = 'bg-primary';
+                let actionIcon = '';
+                if (log.action === 'login') {
+                    badgeClass = 'bg-success';
+                } else if (log.action === 'logout') {
+                    badgeClass = 'bg-danger';
+                } else if (log.action === 'ORDER_EDITED') {
+                    badgeClass = 'bg-warning';
+                    actionIcon = '<i class="bi bi-pencil-square me-1"></i>';
+                }
+                
+                // Format action text with proper title case
+                let actionText = log.action.replace(/_/g, ' ');
+                actionText = actionText.charAt(0).toUpperCase() + actionText.slice(1);
+                
+                // Format role badge
+                let roleBadge = '<span class="text-muted">N/A</span>';
+                if (log.user.role && log.user.role !== 'N/A') {
+                    switch(log.user.role) {
+                        case 'super_user':
+                            roleBadge = '<span class="badge bg-danger">Super User</span>';
+                            break;
+                        case 'branch_admin':
+                            roleBadge = '<span class="badge bg-primary">Branch Admin</span>';
+                            break;
+                        case 'cashier':
+                            roleBadge = '<span class="badge bg-success">Cashier</span>';
+                            break;
+                        case 'waiter':
+                            roleBadge = '<span class="badge bg-info">Waiter</span>';
+                            break;
+                        default:
+                            roleBadge = `<span class="badge bg-secondary">${log.user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>`;
+                    }
+                }
+                
+                // Check if user is superuser to include branch and role columns
+                const isSuperUser = window.isSuperUser;
+                
+                let branchRoleColumns = '';
+                if (isSuperUser) {
+                    branchRoleColumns = `
+                        <td><span class="badge bg-secondary">${log.user.branch_name || 'N/A'}</span></td>
+                        <td>${roleBadge}</td>
+                    `;
+                }
+                
+                row.innerHTML = `
+                    <td>
+                        <div>${log.user.username}</div>
+                        <small class="text-muted">${log.user.full_name}</small>
+                    </td>
+                    ${branchRoleColumns}
+                    <td>
+                        <span class="badge ${badgeClass}">
+                            ${actionIcon}${actionText}
+                        </span>
+                    </td>
+                    <td>${log.description}</td>
+                    <td>${log.ip_address}</td>
+                    <td>
+                        <div>${log.created_at.date}</div>
+                        <small class="text-muted">${log.created_at.time}</small>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // Update pagination
+            updatePagination(data.pagination);
+        })
+        .catch(error => {
+            console.error('Error loading logs:', error);
+        });
+    }
+    
+    // Update pagination controls
+    function updatePagination(pagination) {
+        const paginationElement = document.getElementById('logsPagination');
+        let paginationHtml = '<ul class="pagination justify-content-center">';
+        
+        // Previous button
+        if (pagination.has_prev) {
+            paginationHtml += `
+                <li class="page-item">
+                    <a class="page-link" href="#" data-page="${pagination.prev_num}">Previous</a>
+                </li>
+            `;
+        } else {
+            paginationHtml += `
+                <li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                </li>
+            `;
+        }
+        
+        // Page numbers
+        // Simplified pagination for demo - in a real app you'd want more sophisticated pagination
+        for (let i = 1; i <= Math.min(5, pagination.pages); i++) {
+            if (i === pagination.page) {
+                paginationHtml += `
+                    <li class="page-item active">
+                        <span class="page-link">${i}</span>
+                    </li>
+                `;
+            } else {
+                paginationHtml += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" data-page="${i}">${i}</a>
+                    </li>
+                `;
+            }
+        }
+        
+        // Next button
+        if (pagination.has_next) {
+            paginationHtml += `
+                <li class="page-item">
+                    <a class="page-link" href="#" data-page="${pagination.next_num}">Next</a>
+                </li>
+            `;
+        } else {
+            paginationHtml += `
+                <li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                </li>
+            `;
+        }
+        
+        paginationHtml += '</ul>';
+        paginationElement.innerHTML = paginationHtml;
+        
+        // Reattach event listeners
+        paginationElement.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A' && e.target.dataset.page) {
+                e.preventDefault();
+                loadLogs(parseInt(e.target.dataset.page));
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Cashier Performance - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1>Cashier Performance Tracking</h1>
+        
+        <!-- Filters -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="performanceFilterForm" class="row g-3">
+                    <div class="col-md-3">
+                        <label for="daysSelect" class="form-label">Time Period</label>
+                        <select class="form-select" id="daysSelect" name="days">
+                            <option value="1" {% if days == 1 %}selected{% endif %}>1 Day</option>
+                            <option value="2" {% if days == 2 %}selected{% endif %}>2 Days</option>
+                            <option value="3" {% if days == 3 %}selected{% endif %}>3 Days</option>
+                            <option value="5" {% if days == 5 %}selected{% endif %}>5 Days</option>
+                            <option value="7" {% if days == 7 %}selected{% endif %}>7 Days</option>
+                            <option value="10" {% if days == 10 %}selected{% endif %}>10 Days</option>
+                            <option value="15" {% if days == 15 %}selected{% endif %}>15 Days</option>
+                            <option value="20" {% if days == 20 %}selected{% endif %}>20 Days</option>
+                            <option value="30" {% if days == 30 %}selected{% endif %}>30 Days</option>
+                            <option value="90" {% if days == 90 %}selected{% endif %}>3 Months</option>
+                            <option value="180" {% if days == 180 %}selected{% endif %}>6 Months</option>
+                            <option value="270" {% if days == 270 %}selected{% endif %}>9 Months</option>
+                            <option value="365" {% if days == 365 %}selected{% endif %}>12 Months</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="startDate" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="startDate" name="start_date" 
+                               value="{{ start_date.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="endDate" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="endDate" name="end_date" 
+                               value="{{ end_date.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-funnel"></i> Apply Filters
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Performance Metrics -->
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="performanceTable">
+                        <thead>
+                            <tr>
+                                <th scope="col" data-sort="cashier">Cashier Name</th>
+                                <th scope="col" data-sort="orders" class="text-center">Total Orders</th>
+                                <th scope="col" data-sort="paid" class="text-center">Paid Orders</th>
+                                <th scope="col" data-sort="unpaid" class="text-center">Unpaid Orders</th>
+                                <th scope="col" data-sort="sales" class="text-center">Sales (QAR)</th>
+                                <th scope="col" data-sort="avg" class="text-center">Avg Order</th>
+                                <th scope="col" data-sort="logins" class="text-center">Logins</th>
+                                <th scope="col" data-sort="efficiency" class="text-center">Efficiency</th>
+                            </tr>
+                        </thead>
+                        <tbody id="performanceTableBody">
+                            {% for data in performance_data %}
+                            <tr>
+                                <td>
+                                    <strong>{{ data.cashier.get_full_name() }}</strong>
+                                    <br><small class="text-muted">{{ data.branch.name if data.branch else 'No Branch' }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-info">{{ data.orders_count }}</span>
+                                    <small class="text-muted d-block">All orders</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success">{{ data.paid_orders_count }}</span>
+                                    <small class="text-muted d-block">Revenue counted</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-warning">{{ data.unpaid_orders_count }}</span>
+                                    <small class="text-muted d-block">Awaiting payment</small>
+                                </td>
+                                <td class="text-center">
+                                    <strong>{{ "%.2f"|format(data.total_sales) }}</strong>
+                                    <small class="text-muted d-block">From paid orders</small>
+                                </td>
+                                <td class="text-center">
+                                    <strong>{{ "%.2f"|format(data.avg_order_value) }}</strong>
+                                    <small class="text-muted d-block">Per paid order</small>
+                                </td>
+                                <td class="text-center">{{ data.login_count }}</td>
+                                <td class="text-center">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-success" role="progressbar" 
+                                             style="width: {{ [100, data.efficiency_score] | min }}%" 
+                                             aria-valuenow="{{ [100, data.efficiency_score] | min }}" 
+                                             aria-valuemin="0" aria-valuemax="100">
+                                            {{ "%.0f"|format([100, data.efficiency_score] | min) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle form submission with AJAX
+    document.getElementById('performanceFilterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        loadPerformanceData();
+    });
+    
+    // Sync date inputs with days select
+    document.getElementById('daysSelect').addEventListener('change', function() {
+        const days = parseInt(this.value);
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - days);
+        
+        document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+        document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+    });
+    
+    // Load performance data with AJAX
+    function loadPerformanceData() {
+        const formData = new FormData(document.getElementById('performanceFilterForm'));
+        const params = new URLSearchParams();
+        for (const [key, value] of formData) {
+            if (value) {
+                params.append(key, value);
+            }
+        }
+        
+        fetch(`{{ url_for('admin.cashier_performance') }}?${params.toString()}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update table body
+            const tableBody = document.getElementById('performanceTableBody');
+            tableBody.innerHTML = '';
+            
+            data.performance_data.forEach(item => {
+                const row = document.createElement('tr');
+                
+                // Format average processing time
+                let processingTimeHtml = 'N/A';
+                if (item.avg_processing_time > 0) {
+                    processingTimeHtml = item.avg_processing_time.toFixed(1);
+                }
+                
+                // Calculate efficiency percentage for progress bar
+                const efficiencyPercent = Math.min(100, item.efficiency_score);
+                
+                row.innerHTML = `
+                    <td>${item.cashier.full_name}</td>
+                    <td class="text-center">
+                        <div>${item.orders_count}</div>
+                        <small class="text-muted">
+                            ${item.pending_orders}/${item.in_progress_orders}/${item.ready_orders}
+                        </small>
+                    </td>
+                    <td class="text-center">${item.total_sales.toFixed(2)}</td>
+                    <td class="text-center">${item.avg_order_value.toFixed(2)}</td>
+                    <td class="text-center">${item.login_count}</td>
+                    <td class="text-center">${processingTimeHtml}</td>
+                    <td class="text-center">
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: ${efficiencyPercent}%" 
+                                 aria-valuenow="${efficiencyPercent}" 
+                                 aria-valuemin="0" aria-valuemax="100">
+                                ${Math.round(efficiencyPercent)}%
+                            </div>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading performance data:', error);
+        });
+    }
+    
+    // Table sorting
+    document.querySelectorAll('th[data-sort]').forEach(header => {
+        header.style.cursor = 'pointer';
+        header.addEventListener('click', function() {
+            const sortBy = this.getAttribute('data-sort');
+            sortTable(sortBy);
+        });
+    });
+    
+    function sortTable(sortBy) {
+        const table = document.getElementById('performanceTable');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        
+        rows.sort((a, b) => {
+            let aValue, bValue;
+            
+            switch(sortBy) {
+                case 'cashier':
+                    aValue = a.cells[0].textContent.trim();
+                    bValue = b.cells[0].textContent.trim();
+                    break;
+                case 'orders':
+                    aValue = parseInt(a.cells[1].firstChild.textContent);
+                    bValue = parseInt(b.cells[1].firstChild.textContent);
+                    break;
+                case 'sales':
+                    aValue = parseFloat(a.cells[2].textContent);
+                    bValue = parseFloat(b.cells[2].textContent);
+                    break;
+                case 'avg':
+                    aValue = parseFloat(a.cells[3].textContent);
+                    bValue = parseFloat(b.cells[3].textContent);
+                    break;
+                case 'logins':
+                    aValue = parseInt(a.cells[4].textContent);
+                    bValue = parseInt(b.cells[4].textContent);
+                    break;
+                case 'processing':
+                    aValue = parseFloat(a.cells[5].textContent) || 0;
+                    bValue = parseFloat(b.cells[5].textContent) || 0;
+                    break;
+                case 'efficiency':
+                    aValue = parseFloat(a.cells[6].querySelector('.progress-bar').getAttribute('aria-valuenow'));
+                    bValue = parseFloat(b.cells[6].querySelector('.progress-bar').getAttribute('aria-valuenow'));
+                    break;
+                default:
+                    return 0;
+            }
+            
+            return bValue - aValue; // Descending order
+        });
+        
+        // Clear and re-append sorted rows
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+        rows.forEach(row => tbody.appendChild(row));
+    }
+});
+</script>
+{% endblock %}

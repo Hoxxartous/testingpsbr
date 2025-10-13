@@ -1,0 +1,1261 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced Reports - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0 text-gray-800">
+                        <i class="bi bi-graph-up text-primary me-2"></i>Advanced Reports
+                    </h1>
+                    <p class="text-muted mb-0">Interactive analytics and performance insights</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" id="refreshAllBtn">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh All
+                    </button>
+                    <button class="btn btn-primary" id="exportBtn">
+                        <i class="bi bi-download"></i> Export Data
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-funnel me-2"></i>Advanced Filters
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <!-- Time Period Quick Select -->
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Time Period</label>
+                            <select class="form-select" id="timePeriodSelect">
+                                <option value="1">Last 1 Day</option>
+                                <option value="2">Last 2 Days</option>
+                                <option value="3">Last 3 Days</option>
+                                <option value="5">Last 5 Days</option>
+                                <option value="7" selected>Last 7 Days</option>
+                                <option value="10">Last 10 Days</option>
+                                <option value="15">Last 15 Days</option>
+                                <option value="20">Last 20 Days</option>
+                                <option value="30">Last 30 Days</option>
+                                <option value="90">Last 3 Months</option>
+                                <option value="180">Last 6 Months</option>
+                                <option value="270">Last 9 Months</option>
+                                <option value="365">Last 12 Months</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+
+                        <!-- Custom Date Range -->
+                        <div class="col-md-3" id="customDateRange" style="display: none;">
+                            <label class="form-label fw-semibold">Date From</label>
+                            <input type="date" class="form-control" id="dateFrom">
+                        </div>
+                        <div class="col-md-3" id="customDateRange2" style="display: none;">
+                            <label class="form-label fw-semibold">Date To</label>
+                            <input type="date" class="form-control" id="dateTo">
+                        </div>
+
+                        <!-- Branch Filter (Superuser Only) -->
+                        {% if current_user.role.name == 'SUPER_USER' %}
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Branch</label>
+                            <select class="form-select" id="branchFilter">
+                                <option value="all">All Branches</option>
+                                {% for branch in branches %}
+                                <option value="{{ branch.id }}" {% if current_branch == branch.id %}selected{% endif %}>
+                                    {{ branch.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        <!-- Service Type Filter -->
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Service Type</label>
+                            <select class="form-select" id="serviceTypeFilter">
+                                <option value="all">All Service Types</option>
+                                <option value="delivery">Delivery Orders</option>
+                                <option value="on_table">On Table Orders</option>
+                                <option value="take_away">Take Away Orders</option>
+                                <option value="card">Card Payments</option>
+                            </select>
+                        </div>
+
+                        <!-- Delivery Company Filter -->
+                        <div class="col-md-3" id="deliveryCompanyFilter" style="display: none;">
+                            <label class="form-label fw-semibold">Delivery Company</label>
+                            <select class="form-select" id="deliveryCompanySelect">
+                                <option value="all">All Companies</option>
+                                {% for company in delivery_companies %}
+                                <option value="{{ company.id }}">{{ company.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Apply Filters Button -->
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-success w-100" id="applyFiltersBtn">
+                                <i class="bi bi-check-circle"></i> Apply Filters
+                            </button>
+                        </div>
+                        
+                        <!-- Clear Filters Button -->
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-outline-secondary w-100" id="clearFiltersBtn">
+                                <i class="bi bi-x-circle"></i> Clear Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4" id="summaryCards">
+        <div class="col-md-3">
+            <div class="card bg-gradient-primary text-white shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-white-50 small">Total Revenue</div>
+                            <div class="h4 mb-0" id="totalRevenue">QAR {{ "%.2f"|format(total_revenue) }}</div>
+                            <div class="text-white-75 small">From paid orders only</div>
+                        </div>
+                        <div class="fa-2x">
+                            <i class="bi bi-currency-dollar"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-gradient-success text-white shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-white-50 small">Total Orders</div>
+                            <div class="h4 mb-0" id="totalOrders">{{ total_orders }}</div>
+                            <div class="text-white-75 small">{{ total_paid_orders }} Paid | {{ total_unpaid_orders }} Unpaid</div>
+                        </div>
+                        <div class="fa-2x">
+                            <i class="bi bi-receipt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-gradient-info text-white shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-white-50 small">Average Order</div>
+                            <div class="h4 mb-0" id="avgOrder">QAR {{ "%.2f"|format(avg_order_value) }}</div>
+                            <div class="text-white-75 small">From paid orders only</div>
+                        </div>
+                        <div class="fa-2x">
+                            <i class="bi bi-graph-up"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-gradient-warning text-white shadow">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-white-50 small">Period</div>
+                            <div class="h6 mb-0" id="periodDisplay">Last 7 Days</div>
+                        </div>
+                        <div class="fa-2x">
+                            <i class="bi bi-calendar-range"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row">
+        <!-- Revenue & Orders Chart -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-bar-chart-line me-2"></i>Revenue & Orders Over Time
+                    </h6>
+                    <div class="dropdown no-arrow">
+                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots-vertical text-gray-400"></i>
+                        </a>
+                        <div class="dropdown-menu dropdown-menu-right shadow">
+                            <a class="dropdown-item" href="#" onclick="toggleChartType('revenueOrdersChart')">Toggle Chart Type</a>
+                            <a class="dropdown-item" href="#" onclick="downloadChart('revenueOrdersChart')">Download Chart</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="revenueOrdersChart" width="100%" height="40"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Service Type Distribution -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-pie-chart me-2"></i>Service Type Distribution
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-pie pt-4 pb-2">
+                        <canvas id="serviceTypeChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-center small" id="serviceTypeLegend">
+                        <!-- Legend will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delivery Companies Performance -->
+    <div class="row" id="deliveryChartsRow" style="display: none;">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-truck me-2"></i>Delivery Companies Performance
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="deliveryCompaniesChart" width="100%" height="30"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Service Type Charts -->
+    <div class="row">
+        <!-- On Table Orders -->
+        <div class="col-xl-6 col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-success">
+                        <i class="bi bi-table me-2"></i>On Table Orders
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="onTableChart" width="100%" height="50"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Take Away Orders -->
+        <div class="col-xl-6 col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-info">
+                        <i class="bi bi-bag me-2"></i>Take Away Orders
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="takeAwayChart" width="100%" height="50"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delivery and Card Payments Charts -->
+    <div class="row">
+        <!-- Delivery Orders -->
+        <div class="col-xl-6 col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="bi bi-truck me-2"></i>Delivery Orders
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="deliveryChart" width="100%" height="50"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card Payments -->
+        <div class="col-xl-6 col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-warning">
+                        <i class="bi bi-credit-card me-2"></i>Card Payments Analysis
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-area">
+                        <canvas id="cardPaymentsChart" width="100%" height="50"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="background: rgba(0,0,0,0.5); z-index: 9999; display: none;">
+    <div class="text-center text-white">
+        <div class="spinner-border text-light mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <h5>Loading Reports...</h5>
+        <p>Please wait while we fetch your data</p>
+    </div>
+</div>
+
+<!-- Chart.js and Custom Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.bg-gradient-success {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.bg-gradient-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.bg-gradient-warning {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.card {
+    border-radius: 15px;
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.chart-area {
+    position: relative;
+    height: 400px;
+}
+
+.chart-pie {
+    position: relative;
+    height: 300px;
+}
+
+#loadingOverlay {
+    backdrop-filter: blur(5px);
+}
+
+.form-select, .form-control {
+    border-radius: 10px;
+    border: 2px solid #e3e6f0;
+    transition: all 0.3s ease;
+}
+
+.form-select:focus, .form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.btn {
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+</style>
+
+<script>
+// Global chart variables
+let revenueOrdersChart;
+let serviceTypeChart;
+let onTableChart;
+let takeAwayChart;
+let deliveryChart;
+let cardPaymentsChart;
+let deliveryCompaniesChart;
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    setupEventListeners();
+    loadInitialData();
+});
+
+// Setup event listeners
+function setupEventListeners() {
+    // Time period change
+    document.getElementById('timePeriodSelect').addEventListener('change', function() {
+        const customRangeElements = ['customDateRange', 'customDateRange2'];
+        if (this.value === 'custom') {
+            customRangeElements.forEach(id => {
+                document.getElementById(id).style.display = 'block';
+            });
+        } else {
+            customRangeElements.forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+            loadAllData();
+        }
+    });
+
+    // Service type filter change
+    document.getElementById('serviceTypeFilter').addEventListener('change', function() {
+        const deliveryFilter = document.getElementById('deliveryCompanyFilter');
+        const deliveryChartsRow = document.getElementById('deliveryChartsRow');
+        
+        if (this.value === 'delivery') {
+            deliveryFilter.style.display = 'block';
+            deliveryChartsRow.style.display = 'block';
+        } else {
+            deliveryFilter.style.display = 'none';
+            deliveryChartsRow.style.display = 'none';
+        }
+        loadAllData();
+    });
+
+    // Apply filters button
+    document.getElementById('applyFiltersBtn').addEventListener('click', loadAllData);
+    
+    // Clear filters button
+    document.getElementById('clearFiltersBtn').addEventListener('click', clearAllFilters);
+
+    // Refresh all button
+    document.getElementById('refreshAllBtn').addEventListener('click', loadAllData);
+
+    // Date inputs change
+    document.getElementById('dateFrom')?.addEventListener('change', loadAllData);
+    document.getElementById('dateTo')?.addEventListener('change', loadAllData);
+
+    // Delivery company change
+    document.getElementById('deliveryCompanySelect').addEventListener('change', loadAllData);
+}
+
+// Initialize all charts
+function initializeCharts() {
+    // Revenue & Orders Chart
+    const revenueCtx = document.getElementById('revenueOrdersChart').getContext('2d');
+    revenueOrdersChart = new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Revenue (QAR)',
+                data: [],
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y'
+            }, {
+                label: 'Orders',
+                data: [],
+                borderColor: '#38ef7d',
+                backgroundColor: 'rgba(56, 239, 125, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    borderColor: '#667eea',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            if (label.includes('Revenue')) {
+                                return `${label}: QAR ${value.toFixed(2)}`;
+                            } else {
+                                return `${label}: ${value}`;
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Revenue (QAR)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Orders'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+
+    // Service Type Distribution Chart
+    const serviceCtx = document.getElementById('serviceTypeChart').getContext('2d');
+    serviceTypeChart = new Chart(serviceCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['On Table', 'Take Away', 'Delivery', 'Card Payment'],
+            datasets: [{
+                data: [0, 0, 0, 0], // Start with no data
+                backgroundColor: [
+                    '#11998e',
+                    '#667eea',
+                    '#f093fb',
+                    '#38ef7d'
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            return `${label}: ${value.toFixed(1)}%`;
+                        }
+                    }
+                }
+            },
+            animation: {
+                animateRotate: true,
+                animateScale: true
+            }
+        }
+    });
+
+    // Initialize other charts
+    initializeServiceTypeCharts();
+}
+
+// Initialize individual service type charts
+function initializeServiceTypeCharts() {
+    const chartConfig = {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Revenue (QAR)',
+                data: [],
+                borderColor: '#11998e',
+                backgroundColor: 'rgba(17, 153, 142, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y'
+            }, {
+                label: 'Orders',
+                data: [],
+                borderColor: '#38ef7d',
+                backgroundColor: 'rgba(56, 239, 125, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    borderColor: '#667eea',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            if (label.includes('Revenue')) {
+                                return `${label}: QAR ${value.toFixed(2)}`;
+                            } else {
+                                return `${label}: ${value} orders`;
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Date'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Revenue (QAR)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Orders'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    }
+                }
+            }
+        }
+    };
+
+    // On Table Chart
+    onTableChart = new Chart(document.getElementById('onTableChart').getContext('2d'), {
+        ...chartConfig,
+        data: {
+            ...chartConfig.data,
+            datasets: chartConfig.data.datasets.map(dataset => ({
+                ...dataset,
+                borderColor: dataset.label === 'Revenue (QAR)' ? '#11998e' : '#38ef7d'
+            }))
+        }
+    });
+
+    // Take Away Chart
+    takeAwayChart = new Chart(document.getElementById('takeAwayChart').getContext('2d'), {
+        ...chartConfig,
+        data: {
+            ...chartConfig.data,
+            datasets: chartConfig.data.datasets.map(dataset => ({
+                ...dataset,
+                borderColor: dataset.label === 'Revenue (QAR)' ? '#667eea' : '#764ba2'
+            }))
+        }
+    });
+
+    // Delivery Chart
+    deliveryChart = new Chart(document.getElementById('deliveryChart').getContext('2d'), {
+        ...chartConfig,
+        data: {
+            ...chartConfig.data,
+            datasets: chartConfig.data.datasets.map(dataset => ({
+                ...dataset,
+                borderColor: dataset.label === 'Revenue (QAR)' ? '#007bff' : '#17a2b8'
+            }))
+        }
+    });
+
+    // Card Payments Chart
+    cardPaymentsChart = new Chart(document.getElementById('cardPaymentsChart').getContext('2d'), {
+        ...chartConfig,
+        data: {
+            ...chartConfig.data,
+            datasets: chartConfig.data.datasets.map(dataset => ({
+                ...dataset,
+                borderColor: dataset.label === 'Revenue (QAR)' ? '#f093fb' : '#f5576c'
+            }))
+        }
+    });
+}
+
+// Load initial data
+function loadInitialData() {
+    loadAllData();
+}
+
+// Load all data based on current filters
+function loadAllData() {
+    console.log('Starting to load all data...');
+    showLoading();
+    
+    const filters = getFilterValues();
+    console.log('Filters:', filters);
+    
+    // Set a shorter timeout to hide loading overlay in case of errors
+    setTimeout(() => {
+        console.log('Timeout reached, hiding loading overlay');
+        hideLoading();
+    }, 5000); // Hide after 5 seconds maximum
+    
+    // Track completed requests
+    let completedRequests = 0;
+    let loadingHidden = false;
+    const totalRequests = 6; // Main data + 4 service types + service breakdown
+    
+    function checkAllComplete() {
+        completedRequests++;
+        console.log(`Completed ${completedRequests}/${totalRequests} requests`);
+        if (completedRequests >= totalRequests && !loadingHidden) {
+            console.log('All requests completed, hiding loading');
+            loadingHidden = true;
+            hideLoading();
+        }
+    }
+    
+    // Load main revenue/orders data
+    loadRevenueOrdersData(filters, checkAllComplete);
+    
+    // Load service type breakdown for pie chart
+    loadServiceTypeBreakdown(filters, checkAllComplete);
+    
+    // Load service type specific data
+    loadServiceTypeData('on_table', onTableChart, filters, checkAllComplete);
+    loadServiceTypeData('take_away', takeAwayChart, filters, checkAllComplete);
+    loadServiceTypeData('delivery', deliveryChart, filters, checkAllComplete);
+    loadServiceTypeData('card', cardPaymentsChart, filters, checkAllComplete);
+    
+    // Load delivery companies data if needed
+    if (filters.service_type === 'delivery') {
+        loadDeliveryCompaniesData(filters);
+    }
+}
+
+// Get current filter values
+function getFilterValues() {
+    const timePeriod = document.getElementById('timePeriodSelect').value;
+    const serviceType = document.getElementById('serviceTypeFilter').value;
+    const deliveryCompanyId = document.getElementById('deliveryCompanySelect').value;
+    
+    // Get branch filter if it exists (superuser only)
+    const branchFilter = document.getElementById('branchFilter');
+    const branchId = branchFilter ? branchFilter.value : 'all';
+    
+    let dateFrom = '', dateTo = '';
+    if (timePeriod === 'custom') {
+        dateFrom = document.getElementById('dateFrom').value || '';
+        dateTo = document.getElementById('dateTo').value || '';
+    }
+    
+    const filters = {
+        time_period: timePeriod,
+        service_type: serviceType,
+        delivery_company_id: deliveryCompanyId,
+        branch_id: branchId
+    };
+    
+    // Only add date parameters if they have values
+    if (dateFrom) filters.date_from = dateFrom;
+    if (dateTo) filters.date_to = dateTo;
+    
+    return filters;
+}
+
+// Load revenue and orders data
+function loadRevenueOrdersData(filters, callback) {
+    const params = new URLSearchParams(filters);
+    
+    fetch(`/admin/api/reports/revenue-orders?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateRevenueOrdersChart(data.data);
+                updateSummaryCards(data.summary);
+                // Don't call loadServiceTypeBreakdown here as it's called separately
+            } else {
+                console.error('Error loading revenue/orders data:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading revenue data:', error);
+        })
+        .finally(() => {
+            if (callback) callback();
+        });
+}
+
+// Load service type specific data
+function loadServiceTypeData(serviceType, chart, baseFilters, callback) {
+    const filters = { ...baseFilters, service_type: serviceType };
+    const params = new URLSearchParams(filters);
+    
+    fetch(`/admin/api/reports/revenue-orders?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateServiceTypeChart(chart, data.data);
+            }
+        })
+        .catch(error => {
+            console.error(`Error loading ${serviceType} data:`, error);
+        })
+        .finally(() => {
+            if (callback) callback();
+        });
+}
+
+// Load delivery companies data
+function loadDeliveryCompaniesData(filters) {
+    const params = new URLSearchParams(filters);
+    
+    fetch(`/admin/api/reports/delivery-companies?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateDeliveryCompaniesChart(data.data);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading delivery companies data:', error);
+        });
+}
+
+// Load service type breakdown data
+function loadServiceTypeBreakdown(filters, callback) {
+    const params = new URLSearchParams(filters);
+    console.log('Loading service type breakdown with filters:', filters);
+    
+    fetch(`/admin/api/reports/service-type-data?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Service type breakdown API response:', data);
+            if (data.success) {
+                updateServiceTypePieChart(data.data, data.total_orders);
+            } else {
+                console.error('Service type breakdown API error:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading service type breakdown:', error);
+        })
+        .finally(() => {
+            if (callback) callback();
+        });
+}
+
+// Update revenue and orders chart
+function updateRevenueOrdersChart(data) {
+    const labels = data.map(item => item.date);
+    const revenueData = data.map(item => item.revenue);
+    const ordersData = data.map(item => item.orders);
+    
+    revenueOrdersChart.data.labels = labels;
+    revenueOrdersChart.data.datasets[0].data = revenueData;
+    revenueOrdersChart.data.datasets[1].data = ordersData;
+    revenueOrdersChart.update();
+}
+
+// Update service type chart (individual charts)
+function updateServiceTypeChart(chart, data) {
+    const labels = data.map(item => item.date);
+    const revenueData = data.map(item => item.revenue);
+    const ordersData = data.map(item => item.orders);
+    
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = revenueData;
+    chart.data.datasets[1].data = ordersData;
+    chart.update();
+}
+
+// Update service type pie chart
+function updateServiceTypePieChart(data, totalOrders = 0) {
+    console.log('Updating pie chart with data:', data, 'Total orders:', totalOrders);
+    
+    const labels = ['On Table', 'Take Away', 'Delivery', 'Card Payment'];
+    const colors = ['#11998e', '#667eea', '#f093fb', '#38ef7d'];
+    const serviceTypes = ['on_table', 'take_away', 'delivery', 'card'];
+    
+    // Extract order counts and calculate percentages
+    const serviceTypeData = serviceTypes.map(type => {
+        const count = data[type] || 0;
+        console.log(`${type}: ${count} orders`);
+        return count;
+    });
+    
+    console.log('Service type counts:', serviceTypeData);
+    
+    // Check if we have any data
+    const hasData = serviceTypeData.some(value => value > 0);
+    const calculatedTotal = serviceTypeData.reduce((sum, count) => sum + count, 0);
+    
+    console.log(`Has data: ${hasData}, Total orders: ${totalOrders}`);
+    
+    if (!hasData || totalOrders === 0) {
+        // Show message if no data
+        console.log('No data found, showing empty chart');
+        serviceTypeChart.data.datasets[0].data = [0, 0, 0, 0];
+        serviceTypeChart.update();
+        
+        const legend = document.getElementById('serviceTypeLegend');
+        legend.innerHTML = '<p class="text-muted text-center">No orders found for the selected period</p>';
+    } else {
+        // Use real data
+        console.log('Updating chart with real data:', serviceTypeData);
+        serviceTypeChart.data.datasets[0].data = serviceTypeData;
+        serviceTypeChart.update('active'); // Force animation
+        
+        console.log('Chart updated successfully');
+        
+        // Update legend with real data
+        const legend = document.getElementById('serviceTypeLegend');
+        legend.innerHTML = labels.map((label, index) => {
+            const orders = serviceTypeData[index];
+            const percentage = totalOrders > 0 ? ((orders / totalOrders) * 100).toFixed(1) : 0;
+            
+            if (orders > 0) {
+                return `<span class="d-inline-block me-3 mb-2">
+                    <i class="bi bi-circle-fill" style="color: ${colors[index]}"></i>
+                    ${label}: ${percentage}% (${orders} orders)
+                </span>`;
+            } else {
+                return `<span class="d-inline-block me-3 mb-2 text-muted">
+                    <i class="bi bi-circle" style="color: ${colors[index]}"></i>
+                    ${label}: 0% (0 orders)
+                </span>`;
+            }
+        }).join('');
+        
+        console.log('Legend updated with real data');
+    }
+}
+
+// Update delivery companies chart
+function updateDeliveryCompaniesChart(data) {
+    if (!deliveryCompaniesChart) {
+        const ctx = document.getElementById('deliveryCompaniesChart').getContext('2d');
+        deliveryCompaniesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: '#667eea',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.dataset.label || '';
+                                const value = context.parsed.y;
+                                if (label.includes('Revenue')) {
+                                    return `${label}: QAR ${value.toFixed(2)}`;
+                                } else {
+                                    return `${label}: ${value} orders`;
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Revenue (QAR)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Orders'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    }
+                }
+            }
+        });
+    }
+    
+    // Update chart with delivery companies data
+    const colors = ['#667eea', '#38ef7d', '#f093fb', '#11998e', '#f5576c'];
+    const datasets = [];
+    let allLabels = [];
+    
+    Object.keys(data).forEach((company, index) => {
+        const companyData = data[company];
+        const labels = companyData.map(item => item.date);
+        const revenueData = companyData.map(item => item.revenue);
+        const ordersData = companyData.map(item => item.orders);
+        
+        if (labels.length > allLabels.length) {
+            allLabels = labels;
+        }
+        
+        // Revenue dataset (solid line, left y-axis)
+        datasets.push({
+            label: `${company} Revenue`,
+            data: revenueData,
+            borderColor: colors[index % colors.length],
+            backgroundColor: colors[index % colors.length] + '20',
+            borderWidth: 3,
+            fill: false,
+            tension: 0.4,
+            yAxisID: 'y'
+        });
+        
+        // Orders dataset (dashed line, right y-axis)
+        datasets.push({
+            label: `${company} Orders`,
+            data: ordersData,
+            borderColor: colors[index % colors.length],
+            backgroundColor: colors[index % colors.length] + '10',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.4,
+            yAxisID: 'y1'
+        });
+    });
+    
+    deliveryCompaniesChart.data.labels = allLabels;
+    deliveryCompaniesChart.data.datasets = datasets;
+    deliveryCompaniesChart.update();
+}
+
+// Update summary cards
+function updateSummaryCards(summary) {
+    console.log('Summary data:', summary);
+    console.log('total_revenue:', summary.total_revenue);
+    console.log('total_orders:', summary.total_orders);
+    console.log('total_paid_orders:', summary.total_paid_orders);
+    
+    document.getElementById('totalRevenue').textContent = `QAR ${summary.total_revenue.toFixed(2)}`;
+    document.getElementById('totalOrders').textContent = summary.total_orders;
+    // Calculate average order value from PAID orders only
+    const totalPaidOrders = summary.total_paid_orders || 0;
+    const avgOrderValue = totalPaidOrders > 0 ? (summary.total_revenue / totalPaidOrders) : 0;
+    console.log('Calculated avgOrderValue:', avgOrderValue, 'from', summary.total_revenue, '/', totalPaidOrders);
+    document.getElementById('avgOrder').textContent = `QAR ${avgOrderValue.toFixed(2)}`;
+    document.getElementById('periodDisplay').textContent = summary.period;
+}
+
+// Show loading overlay
+function showLoading() {
+    console.log('Showing loading overlay');
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.style.visibility = 'visible';
+    }
+}
+
+// Hide loading overlay
+function hideLoading() {
+    console.log('Hiding loading overlay');
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+        overlay.style.visibility = 'hidden';
+        overlay.style.opacity = '0';
+        overlay.classList.add('d-none');
+        console.log('Loading overlay hidden successfully');
+        
+        // Double-check it's hidden
+        setTimeout(() => {
+            if (overlay.style.display !== 'none') {
+                console.warn('Loading overlay still visible, forcing hide');
+                overlay.remove();
+            }
+        }, 100);
+    } else {
+        console.error('Loading overlay element not found');
+    }
+}
+
+// Toggle chart type
+function toggleChartType(chartId) {
+    const chart = window[chartId];
+    if (chart) {
+        chart.config.type = chart.config.type === 'line' ? 'bar' : 'line';
+        chart.update();
+    }
+}
+
+// Download chart
+function downloadChart(chartId) {
+    const chart = window[chartId];
+    if (chart) {
+        const url = chart.toBase64Image();
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${chartId}_${new Date().toISOString().split('T')[0]}.png`;
+        a.click();
+    }
+}
+
+// Clear all filters function
+function clearAllFilters() {
+    // Reset time period to default (7 days)
+    document.getElementById('timePeriodSelect').value = '7';
+    
+    // Reset service type to all
+    document.getElementById('serviceTypeFilter').value = 'all';
+    
+    // Reset branch filter to all (if exists - superuser only)
+    const branchFilter = document.getElementById('branchFilter');
+    if (branchFilter) {
+        branchFilter.value = 'all';
+    }
+    
+    // Reset delivery company to all
+    document.getElementById('deliveryCompanySelect').value = 'all';
+    
+    // Clear custom date inputs
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+    
+    // Hide custom date range inputs
+    document.getElementById('customDateRange').style.display = 'none';
+    document.getElementById('customDateRange2').style.display = 'none';
+    
+    // Hide delivery company filter
+    document.getElementById('deliveryCompanyFilter').style.display = 'none';
+    
+    // Hide delivery charts row
+    document.getElementById('deliveryChartsRow').style.display = 'none';
+    
+    // Reload data with cleared filters
+    loadAllData();
+}
+
+// Export data functionality
+document.getElementById('exportBtn').addEventListener('click', function() {
+    // This would implement data export functionality
+    alert('Export functionality would be implemented here');
+});
+
+// Server-side data for charts - follows paid/unpaid logic
+window.serverData = {
+    dailySales: [
+        {% for day in daily_sales %}
+        {
+            date: '{{ day.date }}',
+            total_orders: {{ day.total_orders }},  // ALL orders (including PENDING)
+            paid_orders: {{ day.paid_orders }},    // Only PAID orders
+            unpaid_orders: {{ day.unpaid_orders }}, // Only PENDING orders
+            revenue: {{ day.total }}               // Only from PAID orders
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ],
+    branchPerformance: [
+        {% for branch in branch_performance %}
+        {
+            name: '{{ branch.name }}',
+            total_orders: {{ branch.total_orders }},  // ALL orders
+            paid_orders: {{ branch.paid_orders }},    // Only PAID orders
+            unpaid_orders: {{ branch.unpaid_orders }}, // Only PENDING orders
+            revenue: {{ branch.revenue }}             // Only from PAID orders
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ]
+};
+
+console.log('Server data loaded:', window.serverData);
+</script>
+{% endblock %}

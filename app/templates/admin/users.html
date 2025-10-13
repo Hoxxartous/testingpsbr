@@ -1,0 +1,717 @@
+{% extends "base.html" %}
+
+{% block title %}Users - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1>
+                {% if current_user.role.name == 'SUPER_USER' %}
+                    System Users Management
+                {% else %}
+                    Users Management
+                {% endif %}
+            </h1>
+            {% if current_user.role.name == 'SUPER_USER' %}
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="bi bi-plus-circle"></i> Add User
+            </button>
+            {% endif %}
+        </div>
+        
+        <!-- Advanced Filtering -->
+        {% if current_user.role.name == 'SUPER_USER' %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-funnel"></i> Advanced Filters
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label for="branch_filter" class="form-label">Branch</label>
+                        <select class="form-select" id="branch_filter" name="branch_id">
+                            <option value="">All Branches</option>
+                            {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="role_filter" class="form-label">Role</label>
+                        <select class="form-select" id="role_filter" name="role">
+                            <option value="">All Roles</option>
+                            <option value="branch_admin">Branch Admin</option>
+                            <option value="cashier">Cashier</option>
+                            <option value="waiter">Waiter</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="status_filter" class="form-label">Status</label>
+                        <select class="form-select" id="status_filter" name="status">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary" id="applyFiltersBtn">
+                                <i class="bi bi-funnel"></i> Apply Filters
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearFiltersBtn">
+                                <i class="bi bi-x-circle"></i> Clear Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                {% if current_user.role.name == 'SUPER_USER' %}
+                                <th>Branch</th>
+                                {% endif %}
+                                <th>Status</th>
+                                <th>Last Login</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr data-user-id="{{ user.id }}">
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.get_full_name() }}</td>
+                                <td>{{ user.email }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if user.role.name == 'SUPER_USER' else 'primary' if user.role.name == 'BRANCH_ADMIN' else 'warning' if user.role.name == 'CASHIER' else 'info' if user.role.name == 'WAITER' else 'secondary' }}">
+                                        {{ user.role.value.replace('_', ' ').title() }}
+                                    </span>
+                                </td>
+                                {% if current_user.role.name == 'SUPER_USER' %}
+                                <td>
+                                    {% if user.branch %}
+                                        <span class="badge bg-{{ 'success' if user.branch.is_active else 'danger' }} text-white">
+                                            {{ user.branch.name }}
+                                            {% if not user.branch.is_active %}
+                                                <i class="bi bi-exclamation-triangle ms-1" title="Inactive Branch"></i>
+                                            {% endif %}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">No Branch</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                                <td>
+                                    <span class="badge bg-{{ 'success' if user.is_active else 'danger' }}">
+                                        {{ 'Active' if user.is_active else 'Inactive' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if user.last_login %}
+                                        {{ user.last_login | local_datetime_short }}
+                                    {% else %}
+                                        Never
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if current_user.role.name == 'SUPER_USER' %}
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-outline-primary edit-user" data-user-id="{{ user.id }}" data-username="{{ user.username }}" data-first-name="{{ user.first_name }}" data-last-name="{{ user.last_name }}" data-email="{{ user.email }}" data-role="{{ user.role.name }}" data-is-active="{{ user.is_active }}" data-branch-id="{{ user.branch_id }}">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                        {% if user.role.name != 'SUPER_USER' %}
+                                            {% if not user.is_active and user.branch and not user.branch.is_active %}
+                                            <button class="btn btn-sm btn-outline-secondary" disabled title="Cannot activate user from inactive branch '{{ user.branch.name }}'. Please reactivate the branch first.">
+                                                <i class="bi bi-lock"></i> Blocked
+                                            </button>
+                                            {% else %}
+                                            <button class="btn btn-sm btn-outline-{{ 'success' if not user.is_active else 'warning' }} toggle-user-status" data-user-id="{{ user.id }}" data-username="{{ user.username }}" data-is-active="{{ user.is_active }}">
+                                                <i class="bi bi-{{ 'check-circle' if not user.is_active else 'pause-circle' }}"></i>
+                                                {{ 'Activate' if not user.is_active else 'Deactivate' }}
+                                            </button>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted">View Only</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-person-plus"></i> Add New User
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username *</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email *</label>
+                                <input type="email" class="form-control" id="email" name="email" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="first_name" class="form-label">First Name *</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="last_name" class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Role *</label>
+                                <select class="form-control" id="role" name="role" required>
+                                    <option value="">Select Role</option>
+                                    {% if current_user.role.name == 'SUPER_USER' %}
+                                    <option value="branch_admin">Branch Admin</option>
+                                    {% endif %}
+                                    <option value="cashier">Cashier</option>
+                                    <option value="waiter">Waiter</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="branch_id" class="form-label">Branch *</label>
+                                <select class="form-control" id="branch_id" name="branch_id" required>
+                                    <option value="">Select Branch</option>
+                                    {% for branch in branches %}
+                                    <option value="{{ branch.id }}">{{ branch.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password *</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">Confirm Password *</label>
+                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if current_user.role.name == 'SUPER_USER' %}
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="can_access_multiple_branches" name="can_access_multiple_branches">
+                            <label class="form-check-label" for="can_access_multiple_branches">
+                                Can access multiple branches
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveUserBtn">
+                    <i class="bi bi-person-plus"></i> Create User
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <input type="hidden" id="editUserId">
+                    {% if current_user.role.name == 'SUPER_USER' %}
+                    <div class="mb-3">
+                        <label for="editUsername" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="editUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editFirstName" class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="editFirstName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLastName" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="editLastName" required>
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label for="editUsername" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="editUsername" readonly>
+                        <small class="text-muted">Username cannot be changed to preserve data integrity</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editFirstName" class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="editFirstName" readonly>
+                        <small class="text-muted">Names cannot be changed to preserve data integrity</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editLastName" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="editLastName" readonly>
+                        <small class="text-muted">Names cannot be changed to preserve data integrity</small>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editEmail" required>
+                    </div>
+                    <div class="mb-3" id="editRoleContainer">
+                        <label for="editRole" class="form-label">Role</label>
+                        <select class="form-select" id="editRole">
+                            <option value="branch_admin">Branch Admin</option>
+                            <option value="cashier">Cashier</option>
+                            <option value="waiter">Waiter</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="editRoleBadgeContainer" style="display: none;">
+                        <label class="form-label">Role</label>
+                        <div>
+                            <span class="badge bg-danger fs-6" id="editRoleBadge">Super User</span>
+                            <small class="text-muted d-block mt-1">Role cannot be changed for super users</small>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editBranchId" class="form-label">Branch</label>
+                        <select class="form-select" id="editBranchId">
+                            {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editIsActive" class="form-label">Status</label>
+                        <select class="form-select" id="editIsActive">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label">Password (leave blank to keep current)</label>
+                        <input type="password" class="form-control" id="editPassword">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditUser">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password confirmation validation
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirm_password');
+    
+    function validatePassword() {
+        if (password.value !== confirmPassword.value) {
+            confirmPassword.setCustomValidity("Passwords don't match");
+        } else {
+            confirmPassword.setCustomValidity('');
+        }
+    }
+    
+    if (password && confirmPassword) {
+        password.addEventListener('change', validatePassword);
+        confirmPassword.addEventListener('keyup', validatePassword);
+    }
+    
+    // AJAX Filtering functionality
+    function loadUsers(filters = {}) {
+        const params = new URLSearchParams();
+        if (filters.branch_id) params.append('branch_id', filters.branch_id);
+        if (filters.role) params.append('role', filters.role);
+        if (filters.status) params.append('status', filters.status);
+        
+        const url = '{{ url_for("superuser.users") if current_user.role.name == "SUPER_USER" else url_for("admin.users") }}' + 
+                   (params.toString() ? '?' + params.toString() : '');
+        
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            // Extract the table content from the response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newTable = doc.querySelector('.table-responsive');
+            
+            if (newTable) {
+                document.querySelector('.table-responsive').innerHTML = newTable.innerHTML;
+                showNotification('Filters applied successfully', 'success');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error applying filters', 'error');
+        });
+    }
+    
+    // Apply filters button
+    document.getElementById('applyFiltersBtn').addEventListener('click', function() {
+        const filters = {
+            branch_id: document.getElementById('branch_filter').value,
+            role: document.getElementById('role_filter').value,
+            status: document.getElementById('status_filter').value
+        };
+        
+        loadUsers(filters);
+    });
+    
+    // Clear filters button
+    document.getElementById('clearFiltersBtn').addEventListener('click', function() {
+        document.getElementById('branch_filter').value = '';
+        document.getElementById('role_filter').value = '';
+        document.getElementById('status_filter').value = '';
+        
+        loadUsers();
+        showNotification('Filters cleared', 'success');
+    });
+    
+    // Handle save user button click
+    document.getElementById('saveUserBtn').addEventListener('click', function() {
+        // Get form data
+        const form = document.getElementById('addUserForm');
+        const formData = new FormData(form);
+        
+        // Validate required fields
+        const username = formData.get('username');
+        const firstName = formData.get('first_name');
+        const lastName = formData.get('last_name');
+        const email = formData.get('email');
+        const role = formData.get('role');
+        const branchId = formData.get('branch_id');
+        const password = formData.get('password');
+        const confirmPassword = formData.get('confirm_password');
+        
+        if (!username || !firstName || !lastName || !email || !role || !branchId || !password || !confirmPassword) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        if (password !== confirmPassword) {
+            showNotification('Passwords do not match', 'error');
+            return;
+        }
+        
+        // Disable button to prevent double submission
+        this.disabled = true;
+        this.innerHTML = '<i class="bi bi-hourglass-split"></i> Creating...';
+        
+        // Send form data to the add user endpoint
+        fetch('{{ url_for("superuser.add_user") if current_user.role.name == "SUPER_USER" else url_for("admin.add_user") }}', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                return response.json().then(data => {
+                    throw new Error(data.message || 'Failed to create user');
+                });
+            }
+        })
+        .then(data => {
+            if (data.success) {
+                // Success - close modal and reload users
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+                modal.hide();
+                
+                // Show success message
+                showNotification(data.message || 'User created successfully!', 'success');
+                
+                // Reset form
+                form.reset();
+                
+                // Reload users table without page refresh
+                setTimeout(() => loadUsers(), 500);
+            } else {
+                showNotification('Error: ' + (data.message || 'Failed to create user'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while creating the user', 'error');
+        })
+        .finally(() => {
+            // Re-enable button
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-person-plus"></i> Create User';
+        });
+    });
+    
+    // Handle edit user button click
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.edit-user')) {
+            const button = e.target.closest('.edit-user');
+            const userId = button.getAttribute('data-user-id');
+            const username = button.getAttribute('data-username');
+            const firstName = button.getAttribute('data-first-name');
+            const lastName = button.getAttribute('data-last-name');
+            const email = button.getAttribute('data-email');
+            const role = button.getAttribute('data-role');
+            const isActive = button.getAttribute('data-is-active');
+            
+            // Populate edit modal with user data
+            document.getElementById('editUserId').value = userId;
+            document.getElementById('editUsername').value = username;
+            document.getElementById('editFirstName').value = firstName;
+            document.getElementById('editLastName').value = lastName;
+            document.getElementById('editEmail').value = email;
+            document.getElementById('editBranchId').value = button.getAttribute('data-branch-id');
+            document.getElementById('editIsActive').value = isActive;
+            document.getElementById('editPassword').value = '';
+            
+            // Handle role display based on user type
+            const userRole = role.toLowerCase();
+            if (userRole === 'super_user') {
+                // Show badge for super user, hide dropdown
+                document.getElementById('editRoleContainer').style.display = 'none';
+                document.getElementById('editRoleBadgeContainer').style.display = 'block';
+                document.getElementById('editRoleBadge').textContent = 'Super User';
+            } else {
+                // Show dropdown for regular users, hide badge
+                document.getElementById('editRoleContainer').style.display = 'block';
+                document.getElementById('editRoleBadgeContainer').style.display = 'none';
+                document.getElementById('editRole').value = userRole;
+            }
+            
+            // Show edit modal
+            const editModal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            editModal.show();
+        }
+    });
+    
+    // Handle save edit user button click
+    document.getElementById('saveEditUser').addEventListener('click', function() {
+        // Get form data
+        const userId = document.getElementById('editUserId').value;
+        const username = document.getElementById('editUsername').value;
+        const firstName = document.getElementById('editFirstName').value;
+        const lastName = document.getElementById('editLastName').value;
+        const email = document.getElementById('editEmail').value;
+        const isActive = document.getElementById('editIsActive').value;
+        const password = document.getElementById('editPassword').value;
+        
+        // Get role - either from dropdown or detect super user
+        let role;
+        const roleContainer = document.getElementById('editRoleContainer');
+        if (roleContainer.style.display === 'none') {
+            // This is a super user being edited
+            role = 'super_user';
+        } else {
+            // Regular user with role dropdown
+            role = document.getElementById('editRole').value;
+        }
+        
+        // Validate required fields (role is handled above)
+        if (!username || !firstName || !lastName || !email) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        // Create user data object (superuser can edit all fields)
+        const userData = {};
+        const isSuperUser = {{ 'true' if current_user.role.name == 'SUPER_USER' else 'false' }};
+        
+        if (isSuperUser) {
+            // Superuser can edit all fields
+            userData.username = username;
+            userData.first_name = firstName;
+            userData.last_name = lastName;
+        }
+        
+        userData.email = email;
+        userData.role = role;
+        userData.branch_id = document.getElementById('editBranchId').value;
+        userData.is_active = isActive === 'true';
+        
+        if (password) {
+            userData.password = password; // Will only update if not empty
+        }
+        
+        // Send AJAX request to update user
+        fetch('{{ url_for("superuser.update_user", user_id=0) if current_user.role.name == "SUPER_USER" else url_for("admin.update_user", user_id=0) }}'.replace('0', userId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                showNotification('User updated successfully!', 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+                modal.hide();
+                
+                // Reload users table without page refresh
+                loadUsers();
+            } else {
+                // Show error message
+                showNotification('Error updating user: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while updating the user', 'error');
+        });
+    });
+    
+    // Handle toggle user status button click
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.toggle-user-status')) {
+            const button = e.target.closest('.toggle-user-status');
+            const userId = button.getAttribute('data-user-id');
+            const username = button.getAttribute('data-username');
+            const isActive = button.getAttribute('data-is-active') === 'true';
+            const action = isActive ? 'deactivate' : 'activate';
+            
+            // Create custom confirmation dialog
+            const confirmDialog = document.createElement('div');
+            confirmDialog.className = 'modal fade';
+            confirmDialog.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Confirm Action</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to ${action} user "<strong>${username}</strong>"?</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-${isActive ? 'warning' : 'success'}" id="confirmAction">
+                                ${action.charAt(0).toUpperCase() + action.slice(1)}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(confirmDialog);
+            
+            const modal = new bootstrap.Modal(confirmDialog);
+            modal.show();
+            
+            document.getElementById('confirmAction').addEventListener('click', function() {
+                modal.hide();
+                document.body.removeChild(confirmDialog);
+                // Send AJAX request to toggle user status
+                fetch('{{ url_for("superuser.delete_user", user_id=0) if current_user.role.name == "SUPER_USER" else url_for("admin.delete_user", user_id=0) }}'.replace('0', userId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show success message
+                        showNotification(data.message, 'success');
+                        // Reload users table without page refresh
+                        loadUsers();
+                    } else {
+                        // Show error message
+                        showNotification('Error: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('An error occurred while updating user status', 'error');
+                });
+            });
+        }
+    });
+    
+    // Show notification function
+    function showNotification(message, type) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-' + (type === 'error' ? 'danger' : type) + ' alert-dismissible fade show position-fixed';
+        notification.style = 'top: 20px; right: 20px; z-index: 9999;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+
+{% block title %}App Settings - Super Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-gear"></i> Application Settings</h2>
+                <button type="button" class="btn btn-info" onclick="testTimezone()">
+                    <i class="bi bi-clock"></i> Test Current Timezone
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Time Display -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock"></i> Current Time</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Local Time:</strong><br>
+                            <span class="text-success fs-5">{{ current_time_local.strftime('%Y-%m-%d %H:%M:%S') }}</span><br>
+                            <small class="text-muted">{{ current_timezone }}</small>
+                        </div>
+                        <div class="col-6">
+                            <strong>UTC Time:</strong><br>
+                            <span class="text-info fs-5">{{ current_time_utc.strftime('%Y-%m-%d %H:%M:%S') }}</span><br>
+                            <small class="text-muted">Coordinated Universal Time</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Important Note</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2"><strong>Timezone affects:</strong></p>
+                    <ul class="mb-0">
+                        <li>All new order timestamps</li>
+                        <li>Dashboard and report displays</li>
+                        <li>Order history and analytics</li>
+                        <li>Audit logs and system events</li>
+                    </ul>
+                    <p class="text-muted mt-2 mb-0"><small>Existing orders will be converted to the new timezone for display.</small></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Form -->
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-sliders"></i> Application Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('superuser.save_settings') }}">
+                        <!-- Timezone Setting -->
+                        <div class="mb-4">
+                            <label for="timezone" class="form-label">
+                                <i class="bi bi-globe"></i> <strong>Application Timezone</strong>
+                            </label>
+                            <select class="form-select form-select-lg" id="timezone" name="timezone" required>
+                                {% for tz_value, tz_label in available_timezones %}
+                                <option value="{{ tz_value }}" {% if tz_value == current_timezone %}selected{% endif %}>
+                                    {{ tz_label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle text-primary"></i>
+                                This timezone will be used for all order creation and datetime displays throughout the application.
+                                <strong>Qatar (AST +03:00)</strong> is recommended for Qatar-based restaurants.
+                            </div>
+                        </div>
+
+                        <!-- Date Format Setting -->
+                        <div class="mb-4">
+                            <label for="date_format" class="form-label">
+                                <i class="bi bi-calendar3"></i> <strong>Date Format</strong>
+                            </label>
+                            <select class="form-select" id="date_format" name="date_format" required>
+                                <option value="%Y-%m-%d %H:%M:%S" {% if current_date_format == '%Y-%m-%d %H:%M:%S' %}selected{% endif %}>
+                                    2024-01-15 14:30:25 (ISO Format)
+                                </option>
+                                <option value="%d/%m/%Y %H:%M:%S" {% if current_date_format == '%d/%m/%Y %H:%M:%S' %}selected{% endif %}>
+                                    15/01/2024 14:30:25 (DD/MM/YYYY)
+                                </option>
+                                <option value="%m/%d/%Y %H:%M:%S" {% if current_date_format == '%m/%d/%Y %H:%M:%S' %}selected{% endif %}>
+                                    01/15/2024 14:30:25 (MM/DD/YYYY)
+                                </option>
+                                <option value="%d-%m-%Y %H:%M" {% if current_date_format == '%d-%m-%Y %H:%M' %}selected{% endif %}>
+                                    15-01-2024 14:30 (Short Format)
+                                </option>
+                            </select>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle text-primary"></i>
+                                Choose how dates and times should be displayed throughout the application.
+                            </div>
+                        </div>
+
+                        <!-- Currency Setting -->
+                        <div class="mb-4">
+                            <label for="currency" class="form-label">
+                                <i class="bi bi-currency-exchange"></i> <strong>Default Currency</strong>
+                            </label>
+                            <select class="form-select" id="currency" name="currency" required>
+                                <option value="QAR" {% if current_currency == 'QAR' %}selected{% endif %}>QAR - Qatari Riyal</option>
+                                <option value="USD" {% if current_currency == 'USD' %}selected{% endif %}>USD - US Dollar</option>
+                                <option value="EUR" {% if current_currency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
+                                <option value="AED" {% if current_currency == 'AED' %}selected{% endif %}>AED - UAE Dirham</option>
+                                <option value="SAR" {% if current_currency == 'SAR' %}selected{% endif %}>SAR - Saudi Riyal</option>
+                                <option value="KWD" {% if current_currency == 'KWD' %}selected{% endif %}>KWD - Kuwaiti Dinar</option>
+                                <option value="BHD" {% if current_currency == 'BHD' %}selected{% endif %}>BHD - Bahraini Dinar</option>
+                            </select>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle text-primary"></i>
+                                Default currency symbol for the application. Individual branches can override this setting.
+                            </div>
+                        </div>
+
+                        <!-- Order Counter Settings -->
+                        <div class="mb-4">
+                            <h6><i class="bi bi-123"></i> <strong>Order Counter Settings</strong></h6>
+                            
+                            <!-- Enable Counter Reset -->
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="counter_reset_enabled" 
+                                       name="counter_reset_enabled" {% if counter_reset_enabled %}checked{% endif %}>
+                                <label class="form-check-label" for="counter_reset_enabled">
+                                    <strong>Enable Daily Counter Reset</strong>
+                                </label>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle text-primary"></i>
+                                    When enabled, order counters will automatically reset at the specified time each day.
+                                </div>
+                            </div>
+                            
+                            <!-- Reset Time -->
+                            <div class="mb-3">
+                                <label for="counter_reset_time" class="form-label">
+                                    <i class="bi bi-clock"></i> <strong>Daily Reset Time</strong>
+                                </label>
+                                <input type="time" class="form-control" id="counter_reset_time" 
+                                       name="counter_reset_time" value="{{ counter_reset_time }}" required>
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle text-primary"></i>
+                                    Time when counters will be reset daily (24-hour format). Recommended: 00:00 (midnight).
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Panel -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-question-circle"></i> Help & Information</h5>
+                </div>
+                <div class="card-body">
+                    <h6><i class="bi bi-clock-history"></i> Timezone Changes</h6>
+                    <p class="small">When you change the timezone:</p>
+                    <ul class="small">
+                        <li>New orders will use the new timezone</li>
+                        <li>Existing orders will be displayed in the new timezone</li>
+                        <li>All users will see times in the new timezone</li>
+                        <li>Reports and analytics will use the new timezone</li>
+                    </ul>
+
+                    <hr>
+
+                    <h6><i class="bi bi-shield-check"></i> Best Practices</h6>
+                    <ul class="small">
+                        <li>Set timezone to match your restaurant's location</li>
+                        <li>Avoid changing timezone frequently</li>
+                        <li>Inform staff about timezone changes</li>
+                        <li>Test the timezone before peak hours</li>
+                    </ul>
+
+                    <hr>
+
+                    <h6><i class="bi bi-geo-alt"></i> Qatar Timezone</h6>
+                    <p class="small">
+                        <strong>Asia/Qatar</strong> is the recommended timezone for Qatar-based restaurants.
+                        It follows Arabia Standard Time (AST) which is UTC+3.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Test Results Panel -->
+            <div class="card mt-3" id="test-results" style="display: none;">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0"><i class="bi bi-check-circle"></i> Timezone Test Results</h6>
+                </div>
+                <div class="card-body" id="test-content">
+                    <!-- Test results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Counter Statistics Panel -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Order Counter Statistics</h5>
+                    <div>
+                        <button type="button" class="btn btn-warning btn-sm me-2" onclick="resetAllCounters()">
+                            <i class="bi bi-arrow-clockwise"></i> Reset All Counters
+                        </button>
+                        <button type="button" class="btn btn-light btn-sm" onclick="location.reload()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if counter_stats %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Branch</th>
+                                    <th>Code</th>
+                                    <th>Current Counter</th>
+                                    <th>Last Reset Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in counter_stats %}
+                                <tr>
+                                    <td><strong>{{ stat.branch_name }}</strong></td>
+                                    <td><span class="badge bg-secondary">{{ stat.branch_code }}</span></td>
+                                    <td>
+                                        <span class="badge bg-primary fs-6">{{ stat.current_counter }}</span>
+                                    </td>
+                                    <td>
+                                        {% if stat.last_reset_date %}
+                                            {{ stat.last_reset_date.strftime('%Y-%m-%d') }}
+                                        {% else %}
+                                            <span class="text-muted">Never</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-outline-warning btn-sm reset-branch-btn" 
+                                                data-branch-name="{{ stat.branch_name }}" 
+                                                data-branch-id="{{ stat.branch_id }}">
+                                            <i class="bi bi-arrow-clockwise"></i> Reset
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No counter statistics available. Counters will be created when orders are placed.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function testTimezone() {
+    fetch('{{ url_for("superuser.test_timezone") }}')
+        .then(response => response.json())
+        .then(data => {
+            const testPanel = document.getElementById('test-results');
+            const testContent = document.getElementById('test-content');
+            
+            if (data.success) {
+                testContent.innerHTML = `
+                    <div class="alert alert-success">
+                        <strong><i class="bi bi-check-circle"></i> Timezone Test Successful</strong>
+                    </div>
+                    <p><strong>Current Timezone:</strong> ${data.timezone_name}</p>
+                    <p><strong>Local Time:</strong> ${data.current_local_time}</p>
+                    <p><strong>UTC Time:</strong> ${data.current_utc_time}</p>
+                    <hr>
+                    <h6>Conversion Test:</h6>
+                    <p><strong>UTC:</strong> ${data.test_conversion.utc}</p>
+                    <p><strong>Local:</strong> ${data.test_conversion.local}</p>
+                `;
+            } else {
+                testContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <strong><i class="bi bi-exclamation-triangle"></i> Timezone Test Failed</strong>
+                        <br>Error: ${data.error}
+                    </div>
+                `;
+            }
+            
+            testPanel.style.display = 'block';
+            testPanel.scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch(error => {
+            console.error('Error testing timezone:', error);
+            alert('Error testing timezone. Please check the console for details.');
+        });
+}
+
+// Counter reset functions
+function resetAllCounters() {
+    if (confirm('Are you sure you want to reset ALL order counters for ALL branches? This action cannot be undone.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("superuser.reset_counters") }}';
+        
+        // Add CSRF token if available
+        const csrfToken = document.querySelector('meta[name=csrf-token]');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = csrfToken.getAttribute('content');
+            form.appendChild(csrfInput);
+        }
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Add event listeners for reset buttons
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.reset-branch-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const branchName = this.getAttribute('data-branch-name');
+            const branchId = this.getAttribute('data-branch-id');
+            
+            if (confirm(`Are you sure you want to reset the order counter for branch "${branchName}"? This action cannot be undone.`)) {
+                fetch(`{{ url_for("superuser.reset_branch_counter", branch_id=0) }}`.replace('0', branchId), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error resetting counter. Please check the console for details.');
+                });
+            }
+        });
+    });
+});
+
+// Removed getBranchIdByCode function as we now pass branch ID directly
+
+// Auto-refresh current time every 30 seconds
+setInterval(function() {
+    location.reload();
+}, 30000);
+</script>
+{% endblock %}

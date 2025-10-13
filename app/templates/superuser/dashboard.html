@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}Super User Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">🚀 Super User Dashboard</h1>
+                    <p class="text-muted">Enterprise Multi-Branch Management System</p>
+                </div>
+                <div>
+                    <span class="badge bg-success fs-6">System Administrator</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-2 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Active Branches</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_branches }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-building fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Total Users</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_users }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Orders Today</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_orders_today }}</div>
+                            <div class="text-xs text-muted">
+                                <span class="text-success">{{ paid_orders_today }} Paid</span> | 
+                                <span class="text-warning">{{ unpaid_orders_today }} Unpaid</span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Revenue Today</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ "%.2f"|format(today_revenue) }} QAR</div>
+                            <div class="text-xs text-muted">From paid orders only</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Total Paid Orders</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_paid_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-md-6 mb-4">
+            <div class="card border-left-danger shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                Total Unpaid Orders</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_unpaid_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edited Orders Statistics Row -->
+    <div class="row mb-4">
+        <div class="col-xl-6 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Orders Edited Today</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ edited_orders_today }}</div>
+                            <div class="text-xs text-muted">Across all branches</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-edit fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-6 col-md-6 mb-4">
+            <div class="card border-left-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">
+                                Total Edited Orders</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_edited_orders }}</div>
+                            <div class="text-xs text-muted">All-time system-wide</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-history fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Branch Performance -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Branch Performance Today</h6>
+                    <a href="{{ url_for('superuser.branches') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-cog"></i> Manage Branches
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Branch</th>
+                                    <th>Code</th>
+                                    <th>Orders Today</th>
+                                    <th>Paid Orders</th>
+                                    <th>Unpaid Orders</th>
+                                    <th>Revenue Today</th>
+                                    <th>Active Users</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for branch in branch_stats %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ branch.name }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ branch.code }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ branch.total_orders_count or 0 }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ branch.paid_orders_count or 0 }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-warning">{{ branch.unpaid_orders_count or 0 }}</span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ "%.2f"|format(branch.revenue or 0) }} QAR</strong>
+                                        <small class="text-muted d-block">From paid orders</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ branch.users_count or 0 }}</span>
+                                    </td>
+                                    <td>
+                                        {% set performance = (branch.revenue or 0) / (branch.users_count or 1) %}
+                                        {% if performance > 500 %}
+                                            <span class="badge bg-success">Excellent</span>
+                                        {% elif performance > 200 %}
+                                            <span class="badge bg-warning">Good</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Average</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions and Recent Activity -->
+    <div class="row">
+        <!-- Quick Actions -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <a href="{{ url_for('superuser.add_branch') }}" class="btn btn-outline-primary btn-block">
+                                <i class="fas fa-plus"></i><br>Add Branch
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="{{ url_for('superuser.add_user') }}" class="btn btn-outline-success btn-block">
+                                <i class="fas fa-user-plus"></i><br>Add User
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="{{ url_for('superuser.users') }}" class="btn btn-outline-info btn-block">
+                                <i class="fas fa-users-cog"></i><br>Manage Users
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-warning btn-block">
+                                <i class="fas fa-chart-bar"></i><br>System Reports
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Orders (All Branches)</h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        {% for order in recent_orders %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ order.order_number }}</strong><br>
+                                <small class="text-muted">
+                                    {{ order.branch.name }} - {{ order.cashier.get_full_name() if order.cashier }}
+                                </small>
+                            </div>
+                            <div class="text-right">
+                                <strong>{{ "%.2f"|format(order.total_amount) }} QAR</strong><br>
+                                <small class="text-muted">{{ order.created_at | local_datetime_short }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+.border-left-secondary {
+    border-left: 0.25rem solid #6c757d !important;
+}
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b !important;
+}
+</style>
+{% endblock %}

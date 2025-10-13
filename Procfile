@@ -1,0 +1,1 @@
+web: gunicorn --worker-class eventlet -w 1 --timeout 120 --preload --max-requests 1000 --max-requests-jitter 50 wsgi:app

@@ -1,0 +1,1141 @@
+{% extends "base.html" %}
+
+{% block title %}Waiter Requests - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="display-6 mb-1">
+                        <i class="bi bi-person-badge text-warning me-2"></i>Waiter Requests
+                    </h1>
+                    <p class="text-muted mb-0">Manage orders from waiters - {{ current_user.get_full_name() }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('pos.orders') }}" class="btn btn-outline-primary me-2">
+                        <i class="bi bi-list-ul"></i> All Orders
+                    </a>
+                    <a href="{{ url_for('pos.dashboard') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4" id="statsContainer">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title mb-0">Total Orders</h6>
+                            <h2 class="mb-0" id="totalOrdersCount">0</h2>
+                        </div>
+                        <div class="ms-3">
+                            <i class="bi bi-receipt fs-1 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title mb-0">Paid Orders</h6>
+                            <h2 class="mb-0" id="paidOrdersCount">0</h2>
+                        </div>
+                        <div class="ms-3">
+                            <i class="bi bi-check-circle fs-1 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title mb-0">Pending Orders</h6>
+                            <h2 class="mb-0" id="pendingOrdersCount">0</h2>
+                        </div>
+                        <div class="ms-3">
+                            <i class="bi bi-clock fs-1 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-grow-1">
+                            <h6 class="card-title mb-0">Actions</h6>
+                            <button class="btn btn-light btn-sm mt-1" id="clearOrdersBtn" disabled>
+                                <i class="bi bi-trash"></i> Clear Paid
+                            </button>
+                        </div>
+                        <div class="ms-3">
+                            <i class="bi bi-gear fs-1 opacity-75"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Sort By</label>
+                            <select class="form-select" id="sortBySelect">
+                                <option value="created_at">Order Time</option>
+                                <option value="total_amount">Amount</option>
+                                <option value="table_number">Table Number</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Order</label>
+                            <select class="form-select" id="sortOrderSelect">
+                                <option value="desc">Newest First</option>
+                                <option value="asc">Oldest First</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Status Filter</label>
+                            <select class="form-select" id="statusFilterSelect">
+                                <option value="all">All Orders</option>
+                                <option value="pending">Pending Only</option>
+                                <option value="paid">Paid Only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">&nbsp;</label>
+                            <button class="btn btn-primary w-100" id="refreshBtn">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Grid -->
+    <div class="row" id="ordersGrid">
+        <!-- Orders will be loaded here -->
+    </div>
+
+    <!-- Load More Button -->
+    <div class="row mt-4" id="loadMoreContainer" style="display: none;">
+        <div class="col-12 text-center">
+            <button class="btn btn-outline-primary btn-lg" id="loadMoreBtn">
+                <i class="bi bi-plus-circle me-2"></i>Load More Orders
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div class="row mt-4" id="loadingIndicator" style="display: none;">
+        <div class="col-12 text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading orders...</p>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="row mt-4" id="emptyState" style="display: none;">
+        <div class="col-12 text-center">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-5">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <h4 class="mt-3 text-muted">No Waiter Orders Found</h4>
+                    <p class="text-muted">Orders from waiters will appear here when they create them.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clear Orders Modal -->
+<div class="modal fade" id="clearOrdersModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Clear Paid Orders
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <i class="bi bi-trash display-4 text-danger mb-3"></i>
+                    <h5>Are you sure you want to clear all paid orders?</h5>
+                    <p class="text-muted mb-4">
+                        This will hide <span id="paidOrdersToDelete" class="fw-bold">0</span> paid orders from this page.
+                        Orders will remain in the database and can be found in "My Orders".
+                    </p>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Note:</strong> Only paid orders will be cleared from this page. Pending orders will remain visible. Orders are not deleted from the database - they can still be found in "My Orders".
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmClearBtn">
+                    <i class="bi bi-trash me-2"></i>Clear Paid Orders
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal fade waiter-requests-modal" id="orderDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header waiter-requests-stats-card stats-primary">
+                <h5 class="modal-title">
+                    <i class="bi bi-receipt me-2"></i>Order Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="orderDetailsContent">
+                <!-- Order details will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Waiter Requests Styles */
+.order-card {
+    transition: all 0.3s ease;
+    border: none !important;
+    height: 100%;
+}
+
+.order-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+.order-card.pending {
+    border-left: 4px solid #ffc107 !important;
+    background: linear-gradient(135deg, #fffbf0 0%, #ffffff 100%);
+}
+
+.order-card.paid {
+    border-left: 4px solid #28a745 !important;
+    background: linear-gradient(135deg, #f8fff9 0%, #ffffff 100%);
+}
+
+.order-number {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.order-amount {
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.order-time {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.status-badge {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+}
+
+.waiter-info {
+    background: rgba(255, 193, 7, 0.1);
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.table-info {
+    background: rgba(13, 110, 253, 0.1);
+    border-radius: 8px;
+    padding: 0.5rem;
+    display: inline-block;
+}
+
+.action-buttons .btn {
+    border-radius: 20px;
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+}
+
+.stats-card {
+    background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-primary-dark) 100%);
+}
+
+/* Animation for new orders */
+@keyframes slideInFromTop {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.new-order {
+    animation: slideInFromTop 0.5s ease-out;
+}
+
+/* Pulse animation for pending orders */
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+}
+
+.order-card.pending .status-badge {
+    animation: pulse 2s infinite;
+}
+
+/* Edit marker styles */
+.edit-marker {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 15px;
+    animation: editPulse 3s infinite;
+}
+
+@keyframes editPulse {
+    0% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(13, 202, 240, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(13, 202, 240, 0); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .order-card {
+        margin-bottom: 1rem;
+    }
+    
+    .display-6 {
+        font-size: 1.5rem;
+    }
+    
+    .stats-card .card-body {
+        padding: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Socket.IO for real-time updates
+    const socket = io();
+    
+    // ISOLATION FIX: Cashiers join their specific room for targeted waiter requests
+    {% if current_user.role.name == 'CASHIER' %}
+        // Join cashier-specific room for waiter requests (primary isolation)
+        socket.emit('join', {room: 'cashier_{{ current_user.id }}'});
+        console.log('Joined cashier-specific room: cashier_{{ current_user.id }}');
+        
+        // Also join branch room for general notifications (order_paid, etc.)
+        socket.emit('join', {room: 'branch_{{ current_user.branch_id }}'});
+        console.log('Joined branch room: branch_{{ current_user.branch_id }}');
+    {% else %}
+        // Non-cashiers join branch room only
+        socket.emit('join', {room: 'branch_{{ current_user.branch_id }}'});
+        console.log('Joined branch room: branch_{{ current_user.branch_id }}');
+    {% endif %}
+    
+    // Global variables
+    let currentPage = 1;
+    let hasMorePages = false;
+    let isLoading = false;
+    let currentOrders = [];
+    
+    // Listen for new waiter orders (ISOLATION: Only for orders assigned to this cashier)
+    socket.on('new_waiter_request', function(data) {
+        console.log('ISOLATION: New waiter request event received for assigned cashier:', data);
+        
+        {% if current_user.role.name == 'CASHIER' %}
+            // ISOLATION GUARANTEE: This event only reaches cashiers who are assigned the order
+            // No need to check branch_id or cashier assignment - the room isolation handles it
+            showNotification(`New order #${data.order_number} from ${data.creator_name} - Table ${data.table_number}`, 'info');
+            
+            // Add the new order to the top of the grid with animation
+            addNewOrderToGrid(data);
+            
+            // Update statistics
+            updateStatistics();
+            
+            console.log(`ISOLATION: Order #${data.order_number} added to cashier ${data.assigned_cashier_name} interface`);
+        {% else %}
+            // Non-cashiers should not receive waiter requests
+            console.warn('ISOLATION WARNING: Non-cashier received waiter request event - this should not happen');
+        {% endif %}
+    });
+    
+    // Listen for order paid events
+    socket.on('order_paid', function(data) {
+        console.log('Order paid event received:', data);
+        
+        if (data.branch_id === {{ current_user.branch_id }}) {
+            // Update the specific order card
+            updateOrderCard(data.order_id, 'paid');
+            
+            // Update statistics
+            updateStatistics();
+            
+            showNotification(`Order for Table ${data.table_number} has been paid`, 'success');
+        }
+    });
+    
+    // Listen for waiter requests cleared events
+    socket.on('waiter_requests_cleared', function(data) {
+        console.log('Waiter requests cleared event received:', data);
+        
+        if (data.branch_id === {{ current_user.branch_id }}) {
+            let message = `${data.cleared_count} paid orders have been cleared`;
+            if (data.pending_count > 0) {
+                message += `. ${data.pending_count} pending orders remain visible.`;
+            }
+            showNotification(message, 'success');
+            
+            // Reload orders to reflect the cleared state (simpler and more reliable)
+            loadOrders(1, true);
+        }
+    });
+    
+    // ISOLATION: Listen for order transfer notifications (cashier-specific)
+    socket.on('orders_transferred_to_you', function(data) {
+        console.log('ISOLATION: Orders transferred TO this cashier:', data);
+        showNotification(`${data.transferred_count} orders transferred to you from ${data.from_cashier}`, 'info');
+        
+        // Reload orders to show new assignments
+        loadOrders(1, true);
+    });
+    
+    socket.on('orders_transferred_from_you', function(data) {
+        console.log('ISOLATION: Orders transferred FROM this cashier:', data);
+        showNotification(`${data.transferred_count} orders transferred to ${data.to_cashier}`, 'success');
+        
+        // Reload orders to reflect transfers
+        loadOrders(1, true);
+    });
+    
+    // Listen for waiter order updates (when waiters add items to existing orders)
+    socket.on('waiter_order_updated', function(data) {
+        console.log('ISOLATION: Waiter order updated:', data);
+        
+        {% if current_user.role.name == 'CASHIER' %}
+            // Show notification about order update
+            showNotification(`Order #${data.order_number} updated by ${data.updater_name} - Table ${data.table_number}. New total: QAR ${data.new_total_amount.toFixed(2)}`, 'info');
+            
+            // Update the specific order card with updated icon
+            updateOrderCardForUpdate(data.order_id, data.new_total_amount, data.added_items_count);
+            
+            // Update statistics
+            updateStatistics();
+            
+            console.log(`ISOLATION: Order #${data.order_number} updated notification received`);
+        {% endif %}
+    });
+    
+    // Load initial orders
+    loadOrders(1);
+    
+    // Event listeners
+    document.getElementById('sortBySelect').addEventListener('change', function() {
+        loadOrders(1, true);
+    });
+    
+    document.getElementById('sortOrderSelect').addEventListener('change', function() {
+        loadOrders(1, true);
+    });
+    
+    document.getElementById('statusFilterSelect').addEventListener('change', function() {
+        loadOrders(1, true);
+    });
+    
+    document.getElementById('refreshBtn').addEventListener('click', function() {
+        loadOrders(1, true);
+    });
+    
+    document.getElementById('loadMoreBtn').addEventListener('click', function() {
+        loadOrders(currentPage + 1, false);
+    });
+    
+    document.getElementById('clearOrdersBtn').addEventListener('click', function() {
+        const paidCount = parseInt(document.getElementById('paidOrdersCount').textContent);
+        const pendingCount = parseInt(document.getElementById('pendingOrdersCount').textContent);
+        
+        document.getElementById('paidOrdersToDelete').textContent = paidCount;
+        
+        if (paidCount === 0) {
+            showNotification('No paid orders to clear', 'warning');
+            return;
+        }
+        
+        // Update modal title and message based on whether there are pending orders
+        const modalTitle = document.querySelector('#clearOrdersModal .modal-title');
+        const modalMessage = document.querySelector('#clearOrdersModal h5');
+        
+        if (pendingCount > 0) {
+            modalTitle.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Clear Paid Orders';
+            modalMessage.textContent = `Clear ${paidCount} paid orders? ${pendingCount} pending orders will remain.`;
+        } else {
+            modalTitle.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Clear All Orders';
+            modalMessage.textContent = 'Clear all paid orders from this page?';
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('clearOrdersModal'));
+        modal.show();
+    });
+    
+    document.getElementById('confirmClearBtn').addEventListener('click', function() {
+        clearPaidOrders();
+    });
+    
+    // Function to load orders
+    function loadOrders(page = 1, reset = false) {
+        if (isLoading) return;
+        
+        isLoading = true;
+        
+        // Show loading indicator
+        document.getElementById('loadingIndicator').style.display = 'block';
+        
+        if (reset) {
+            currentPage = 1;
+            currentOrders = [];
+            document.getElementById('ordersGrid').innerHTML = '';
+        }
+        
+        const params = new URLSearchParams({
+            page: page,
+            per_page: 25,
+            sort_by: document.getElementById('sortBySelect').value,
+            sort_order: document.getElementById('sortOrderSelect').value,
+            status_filter: document.getElementById('statusFilterSelect').value
+        });
+        
+        fetch(`/pos/waiter_requests?${params.toString()}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (reset) {
+                    currentOrders = data.orders;
+                } else {
+                    currentOrders = currentOrders.concat(data.orders);
+                }
+                
+                renderOrders(data.orders, !reset);
+                updateStatistics(data.stats);
+                
+                currentPage = data.pagination.page;
+                hasMorePages = data.pagination.has_next;
+                
+                // Update load more button
+                const loadMoreContainer = document.getElementById('loadMoreContainer');
+                if (hasMorePages) {
+                    loadMoreContainer.style.display = 'block';
+                } else {
+                    loadMoreContainer.style.display = 'none';
+                }
+                
+                // Show empty state if no orders
+                const emptyState = document.getElementById('emptyState');
+                if (currentOrders.length === 0) {
+                    emptyState.style.display = 'block';
+                } else {
+                    emptyState.style.display = 'none';
+                }
+            } else {
+                showNotification('Error loading orders: ' + (data.message || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading orders:', error);
+            showNotification('Error loading orders', 'error');
+        })
+        .finally(() => {
+            isLoading = false;
+            document.getElementById('loadingIndicator').style.display = 'none';
+        });
+    }
+    
+    // Function to render orders
+    function renderOrders(orders, append = false) {
+        const grid = document.getElementById('ordersGrid');
+        
+        if (!append) {
+            grid.innerHTML = '';
+        }
+        
+        orders.forEach(order => {
+            const orderCard = createOrderCard(order);
+            grid.appendChild(orderCard);
+        });
+    }
+    
+    // Function to create order card
+    function createOrderCard(order) {
+        const col = document.createElement('div');
+        col.className = 'col-xl-3 col-lg-4 col-md-6 mb-4';
+        
+        const statusClass = order.status === 'paid' ? 'paid' : 'pending';
+        const statusBadge = order.status === 'paid' ? 
+            '<span class="badge bg-success status-badge">Paid</span>' :
+            '<span class="badge bg-warning status-badge">Pending</span>';
+        
+        // Add edit marker for edited orders
+        const editMarker = order.is_edited ? 
+            '<span class="badge bg-info edit-marker" title="Order has been edited"><i class="bi bi-pencil-square"></i> Edited</span>' : '';
+        
+        const markPaidButton = order.can_mark_paid ? 
+            `<button class="btn btn-success btn-sm mark-paid-btn" data-order-id="${order.id}">
+                <i class="bi bi-check-circle"></i> Mark Paid
+            </button>` : '';
+        
+        col.innerHTML = `
+            <div class="card order-card ${statusClass} shadow-sm" data-order-id="${order.id}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="order-number text-primary">#${order.order_number}</div>
+                        <div class="d-flex flex-column gap-1">
+                            ${statusBadge}
+                            ${editMarker}
+                        </div>
+                    </div>
+                    
+                    <div class="waiter-info mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-badge text-warning me-2"></i>
+                            <small class="fw-bold">${order.creator_name}</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div class="table-info">
+                                <i class="bi bi-table text-primary me-1"></i>
+                                <small class="fw-bold">Table ${order.table_number}</small>
+                            </div>
+                        </div>
+                        <div class="col-6 text-end">
+                            <div class="order-amount text-success">QAR ${parseFloat(order.total_amount).toFixed(2)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted">
+                            <i class="bi bi-basket me-1"></i>${order.items_count} items
+                        </small>
+                        <small class="order-time text-muted">
+                            <i class="bi bi-clock me-1"></i>${order.created_at_relative}
+                        </small>
+                    </div>
+                    
+                    <div class="action-buttons d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm view-order-btn" data-order-id="${order.id}">
+                            <i class="bi bi-eye"></i> View
+                        </button>
+                        ${markPaidButton}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add event listeners
+        const viewBtn = col.querySelector('.view-order-btn');
+        viewBtn.addEventListener('click', function() {
+            viewOrderDetails(order.id);
+        });
+        
+        const markPaidBtn = col.querySelector('.mark-paid-btn');
+        if (markPaidBtn) {
+            markPaidBtn.addEventListener('click', function() {
+                markOrderAsPaid(order.id);
+            });
+        }
+        
+        return col;
+    }
+    
+    // Function to update statistics
+    function updateStatistics(stats = null) {
+        if (stats) {
+            document.getElementById('totalOrdersCount').textContent = stats.total;
+            document.getElementById('paidOrdersCount').textContent = stats.paid;
+            document.getElementById('pendingOrdersCount').textContent = stats.pending;
+            
+            // Enable/disable clear button
+            const clearBtn = document.getElementById('clearOrdersBtn');
+            if (stats.paid > 0) {
+                clearBtn.disabled = false;
+                if (stats.pending > 0) {
+                    clearBtn.innerHTML = `<i class="bi bi-trash"></i> Clear ${stats.paid} Paid`;
+                } else {
+                    clearBtn.innerHTML = '<i class="bi bi-trash"></i> Clear All';
+                }
+            } else {
+                clearBtn.disabled = true;
+                if (stats.pending > 0) {
+                    clearBtn.innerHTML = `<i class="bi bi-clock"></i> ${stats.pending} Pending`;
+                } else {
+                    clearBtn.innerHTML = '<i class="bi bi-trash"></i> No Orders';
+                }
+            }
+        }
+    }
+    
+    // Function to update specific order card
+    function updateOrderCard(orderId, newStatus) {
+        const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
+        if (orderCard) {
+            // Update status class
+            orderCard.classList.remove('pending', 'paid');
+            orderCard.classList.add(newStatus);
+            
+            // Update status badge
+            const statusBadge = orderCard.querySelector('.status-badge');
+            if (statusBadge) {
+                if (newStatus === 'paid') {
+                    statusBadge.className = 'badge bg-success status-badge';
+                    statusBadge.innerHTML = 'Paid';
+                } else {
+                    statusBadge.className = 'badge bg-warning status-badge';
+                    statusBadge.innerHTML = 'Pending';
+                }
+            }
+            
+            // Remove mark paid button if order is now paid
+            if (newStatus === 'paid') {
+                const markPaidBtn = orderCard.querySelector('.mark-paid-btn');
+                if (markPaidBtn) {
+                    markPaidBtn.remove();
+                }
+            }
+        }
+    }
+    
+    // Function to update order card when items are added
+    function updateOrderCardForUpdate(orderId, newTotalAmount, addedItemsCount) {
+        const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
+        if (orderCard) {
+            // Update total amount
+            const amountElement = orderCard.querySelector('.order-amount');
+            if (amountElement) {
+                amountElement.textContent = `QAR ${parseFloat(newTotalAmount).toFixed(2)}`;
+            }
+            
+            // Add update indicator icon
+            const orderNumber = orderCard.querySelector('.order-number');
+            if (orderNumber && !orderNumber.querySelector('.update-indicator')) {
+                const updateIcon = document.createElement('i');
+                updateIcon.className = 'bi bi-arrow-clockwise text-info ms-2 update-indicator';
+                updateIcon.title = `${addedItemsCount} items added`;
+                orderNumber.appendChild(updateIcon);
+            }
+            
+            // Add subtle animation to indicate update
+            orderCard.style.animation = 'pulse 1s ease-in-out';
+            setTimeout(() => {
+                orderCard.style.animation = '';
+            }, 1000);
+        }
+    }
+    
+    // Function to mark order as paid
+    function markOrderAsPaid(orderId) {
+        fetch(`/pos/mark_order_paid/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                updateOrderCard(orderId, 'paid');
+                updateStatistics();
+            } else {
+                showNotification('Error marking order as paid: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error marking order as paid:', error);
+            showNotification('Error marking order as paid', 'error');
+        });
+    }
+    
+    // Function to view order details
+    function viewOrderDetails(orderId) {
+        // Load order details via AJAX and show in modal
+        fetch(`/pos/get_order_details/${orderId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Populate modal with order details
+                populateOrderDetailsModal(data.order);
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('orderDetailsModal'));
+                modal.show();
+            } else {
+                showNotification('Error loading order details: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading order details:', error);
+            showNotification('Error loading order details', 'error');
+        });
+    }
+    
+    // Function to populate order details modal
+    function populateOrderDetailsModal(order) {
+        const modalContent = document.getElementById('orderDetailsContent');
+        
+        // Format dates
+        const createdAt = new Date(order.created_at).toLocaleString();
+        const paidAt = order.paid_at ? new Date(order.paid_at).toLocaleString() : null;
+        
+        // Build items HTML with edit tracking
+        let itemsHtml = '';
+        if (order.items && order.items.length > 0) {
+            itemsHtml = `
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Item</th>
+                                <th class="text-center">Qty</th>
+                                <th class="text-end">Price</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            order.items.forEach(item => {
+                // Style for deleted/new items
+                const isDeleted = item.is_deleted || false;
+                const isNew = item.is_new || false;
+                let rowStyle = '';
+                let itemPrefix = '';
+                
+                if (isDeleted) {
+                    rowStyle = 'style="text-decoration: line-through; background-color: #ffebee; color: #666;"';
+                    itemPrefix = '🚫 ';
+                } else if (isNew) {
+                    rowStyle = 'style="background-color: #e8f5e8; font-weight: bold;"';
+                    itemPrefix = '🆕 ';
+                }
+                
+                itemsHtml += `
+                    <tr ${rowStyle}>
+                        <td>
+                            <div class="fw-bold">${itemPrefix}${item.menu_item_name}</div>
+                            ${item.special_requests ? `<small class="text-muted">${item.special_requests}</small>` : ''}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-primary">${item.quantity}</span>
+                        </td>
+                        <td class="text-end">QAR ${parseFloat(item.price).toFixed(2)}</td>
+                        <td class="text-end fw-bold">QAR ${(item.quantity * item.price).toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            
+            itemsHtml += `
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="3" class="text-end">Total:</th>
+                                <th class="text-end text-success">QAR ${parseFloat(order.total_amount).toFixed(2)}</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            `;
+        } else {
+            itemsHtml = '<p class="text-muted text-center">No items found in this order.</p>';
+        }
+        
+        // Status badge
+        let statusBadge = '';
+        if (order.status === 'paid') {
+            statusBadge = '<span class="badge bg-success">Paid</span>';
+        } else if (order.status === 'pending') {
+            statusBadge = '<span class="badge bg-warning">Pending</span>';
+        } else {
+            statusBadge = `<span class="badge bg-secondary">${order.status}</span>`;
+        }
+        
+        // Mark paid button (only for pending orders)
+        let markPaidButton = '';
+        if (order.status === 'pending' && order.can_mark_paid) {
+            markPaidButton = `
+                <div class="text-center mt-3">
+                    <button class="btn btn-success" onclick="markOrderAsPaidFromModal(${order.id})">
+                        <i class="bi bi-check-circle me-2"></i>Mark as Paid
+                    </button>
+                </div>
+            `;
+        }
+        
+        // Edit history section
+        let editHistoryHtml = '';
+        if (order.edit_count && order.edit_count > 0) {
+            editHistoryHtml = `
+                <div class="alert alert-warning mt-3">
+                    <h6><i class="bi bi-pencil-square"></i> Edit History</h6>
+                    <p><strong>Edited ${order.edit_count} time(s)</strong></p>
+                    ${order.last_edited_at ? `<p><small>Last edited: ${new Date(order.last_edited_at).toLocaleString()}</small></p>` : ''}
+                    ${order.last_edited_by ? `<p><small>Last edited by: ${order.last_edited_by}</small></p>` : ''}
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <strong>Legend:</strong> 
+                            🆕 = New items added | 🚫 = Items removed
+                        </small>
+                    </div>
+                </div>
+            `;
+        }
+
+        modalContent.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-primary mb-3">
+                        <i class="bi bi-info-circle me-2"></i>Order Information
+                    </h6>
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td><strong>Order Number:</strong></td>
+                            <td>#${order.order_number}</td>
+                        </tr>
+                        ${order.order_counter ? `
+                        <tr>
+                            <td><strong>Count #:</strong></td>
+                            <td><span class="badge bg-dark">${order.order_counter}</span></td>
+                        </tr>
+                        ` : ''}
+                        <tr>
+                            <td><strong>Status:</strong></td>
+                            <td>${statusBadge}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Table:</strong></td>
+                            <td>${order.table_number || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Created:</strong></td>
+                            <td>${createdAt}</td>
+                        </tr>
+                        ${paidAt ? `<tr><td><strong>Paid:</strong></td><td>${paidAt}</td></tr>` : ''}
+                        <tr>
+                            <td><strong>Total:</strong></td>
+                            <td class="text-success fw-bold">QAR ${parseFloat(order.total_amount).toFixed(2)}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-warning mb-3">
+                        <i class="bi bi-people me-2"></i>Staff Information
+                    </h6>
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td><strong>Created By:</strong></td>
+                            <td>
+                                <i class="bi bi-person-badge text-warning me-1"></i>
+                                ${order.creator_name}
+                            </td>
+                        </tr>
+                        ${order.assigned_cashier_name ? `
+                        <tr>
+                            <td><strong>Assigned To:</strong></td>
+                            <td>
+                                <i class="bi bi-person-check text-primary me-1"></i>
+                                ${order.assigned_cashier_name}
+                            </td>
+                        </tr>
+                        ` : ''}
+                        <tr>
+                            <td><strong>Branch:</strong></td>
+                            <td>
+                                <i class="bi bi-building text-info me-1"></i>
+                                ${order.branch_name}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            ${editHistoryHtml}
+            
+            <hr>
+            
+            <h6 class="text-success mb-3">
+                <i class="bi bi-basket me-2"></i>Order Items (${order.items ? order.items.length : 0})
+            </h6>
+            ${itemsHtml}
+            
+            ${markPaidButton}
+        `;
+    }
+    
+    // Function to mark order as paid from modal
+    function markOrderAsPaidFromModal(orderId) {
+        fetch(`/pos/mark_order_paid/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('orderDetailsModal'));
+                modal.hide();
+                
+                // Update order card and statistics
+                updateOrderCard(orderId, 'paid');
+                updateStatistics();
+            } else {
+                showNotification('Error marking order as paid: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error marking order as paid:', error);
+            showNotification('Error marking order as paid', 'error');
+        });
+    }
+    
+    // Function to clear paid orders
+    function clearPaidOrders() {
+        fetch('/pos/clear_waiter_requests', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('clearOrdersModal'));
+                modal.hide();
+                
+                // Reload orders to show updated state
+                loadOrders(1, true);
+            } else {
+                showNotification('Error clearing orders: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error clearing orders:', error);
+            showNotification('Error clearing orders', 'error');
+        });
+    }
+    
+    // Function to add new order to grid with animation
+    function addNewOrderToGrid(orderData) {
+        const grid = document.getElementById('ordersGrid');
+        
+        // Create order object in expected format
+        const order = {
+            id: orderData.order_id,
+            order_number: orderData.order_number,
+            table_number: orderData.table_number || 'N/A',
+            total_amount: orderData.total_amount,
+            created_at: new Date().toISOString().slice(0, 16).replace('T', ' '),
+            created_at_relative: new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'}),
+            status: 'pending',
+            paid_at: null,
+            creator_name: orderData.creator_name,
+            items_count: orderData.items_count || 0,
+            can_mark_paid: true,
+            edit_count: 0,
+            last_edited_at: null,
+            last_edited_by: null,
+            is_edited: false
+        };
+        
+        // Create the order card
+        const orderCard = createOrderCard(order);
+        orderCard.classList.add('new-order'); // Add animation class
+        
+        // Insert at the beginning of the grid
+        grid.insertBefore(orderCard, grid.firstChild);
+        
+        // Add to current orders array
+        currentOrders.unshift(order);
+        
+        // Hide empty state if it's showing
+        document.getElementById('emptyState').style.display = 'none';
+        
+        // Remove animation class after animation completes
+        setTimeout(() => {
+            orderCard.classList.remove('new-order');
+        }, 500);
+    }
+    
+    // Function to show notifications
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

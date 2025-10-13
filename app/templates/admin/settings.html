@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Settings - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="display-6 mb-1">
+                        <i class="bi bi-gear text-primary me-2"></i>Admin Settings
+                    </h1>
+                    <p class="text-muted mb-0">Manage admin PIN code for cashier order editing - {{ current_user.get_full_name() }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIN Code Settings Card -->
+    <div class="row">
+        <div class="col-lg-8 col-xl-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-shield-lock me-2"></i>Order Editing PIN
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>How it works:</strong> Set a 4-digit admin PIN for order editing authorization. 
+                        When cashiers need to edit orders, they'll ask you to enter this PIN on their tablet to authorize the editing.
+                    </div>
+
+                    <form id="pinSettingsForm">
+                        <!-- Current Order Editing PIN Status -->
+                        {% if order_editing_pin %}
+                        <div class="alert alert-success">
+                            <h6><i class="bi bi-check-circle me-2"></i>Order Editing PIN Status:</h6>
+                            <p class="mb-0"><strong>PIN Code:</strong> ••••  <span class="badge bg-success">Active</span></p>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            No order editing PIN configured. Cashiers cannot edit orders until this PIN is set.
+                        </div>
+                        {% endif %}
+
+                        <!-- Order Editing PIN Input -->
+                        <div class="mb-3">
+                            <label for="orderEditingPin" class="form-label">
+                                <i class="bi bi-key me-1"></i>4-Digit Admin PIN for Order Editing
+                            </label>
+                            <input type="password" 
+                                   class="form-control form-control-lg text-center" 
+                                   id="orderEditingPin" 
+                                   name="order_editing_pin"
+                                   maxlength="4" 
+                                   placeholder="••••"
+                                   style="font-size: 1.5rem; letter-spacing: 0.5rem;"
+                                   value="">
+                            <div class="form-text">
+                                Enter a 4-digit admin PIN for authorizing cashier order editing.
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-outline-secondary" id="testPinBtn">
+                                <i class="bi bi-shield-check me-2"></i>Test PIN
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save me-2"></i>Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions Card -->
+        <div class="col-lg-4 col-xl-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-question-circle me-2"></i>Instructions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6><i class="bi bi-1-circle text-primary me-2"></i>Set Your PIN</h6>
+                    <p class="small text-muted mb-3">Choose a 4-digit PIN code that only you know. This ensures only you can assign orders to your preferred cashier.</p>
+
+                    <h6><i class="bi bi-2-circle text-primary me-2"></i>Select Default Cashier</h6>
+                    <p class="small text-muted mb-3">Choose which cashier should receive all waiter orders when your PIN is used. You can change this anytime.</p>
+
+                    <h6><i class="bi bi-3-circle text-primary me-2"></i>Waiter Workflow</h6>
+                    <p class="small text-muted mb-3">When waiters create orders, they'll see a PIN prompt instead of cashier selection. Enter your PIN to automatically assign the order.</p>
+
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-shield-exclamation me-2"></i>
+                        <strong>Security:</strong> Keep your PIN confidential. Only share it when you want to approve waiter orders personally.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test PIN Modal -->
+<div class="modal fade" id="testPinModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-shield-check me-2"></i>Test PIN Code
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Enter your PIN code to test the verification system:</p>
+                <div class="mb-3">
+                    <input type="password" 
+                           class="form-control form-control-lg text-center" 
+                           id="testPinInput" 
+                           maxlength="4" 
+                           placeholder="••••"
+                           style="font-size: 1.5rem; letter-spacing: 0.5rem;">
+                </div>
+                <div id="testPinResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-info" id="verifyTestPinBtn">
+                    <i class="bi bi-check-circle me-2"></i>Verify PIN
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const pinSettingsForm = document.getElementById('pinSettingsForm');
+    const testPinBtn = document.getElementById('testPinBtn');
+    const testPinModal = new bootstrap.Modal(document.getElementById('testPinModal'));
+    const testPinInput = document.getElementById('testPinInput');
+    const verifyTestPinBtn = document.getElementById('verifyTestPinBtn');
+
+    // Get order editing PIN input
+    const orderEditingPinInput = document.getElementById('orderEditingPin');
+
+    // Format PIN inputs (numbers only)
+    function formatPinInput(input) {
+        if (input) {
+            input.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length > 4) value = value.substring(0, 4);
+                e.target.value = value;
+            });
+        }
+    }
+
+    formatPinInput(orderEditingPinInput);
+    formatPinInput(testPinInput);
+
+    // Save PIN settings
+    pinSettingsForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(pinSettingsForm);
+        const data = {
+            order_editing_pin: formData.get('order_editing_pin') || ''
+        };
+
+        // Validate order editing PIN
+        if (!data.order_editing_pin) {
+            showNotification('Please enter the order editing PIN', 'error');
+            return;
+        }
+
+        if (data.order_editing_pin.length !== 4) {
+            showNotification('Order editing PIN must be exactly 4 digits', 'error');
+            return;
+        }
+
+        // Show loading
+        const submitBtn = pinSettingsForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Saving...';
+        submitBtn.disabled = true;
+
+        // Send request
+        fetch('{{ url_for("admin.save_pin_settings") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while saving settings', 'error');
+        })
+        .finally(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    });
+
+    // Test PIN functionality
+    testPinBtn.addEventListener('click', function() {
+        const currentPin = pinCodeInput.value;
+        if (!currentPin || currentPin.length !== 4) {
+            showNotification('Please enter a 4-digit PIN code first', 'error');
+            return;
+        }
+        testPinInput.value = '';
+        document.getElementById('testPinResult').innerHTML = '';
+        testPinModal.show();
+    });
+
+    verifyTestPinBtn.addEventListener('click', function() {
+        const testPin = testPinInput.value;
+        if (!testPin || testPin.length !== 4) {
+            showNotification('Please enter a 4-digit PIN code', 'error');
+            return;
+        }
+
+        // Show loading
+        const originalText = verifyTestPinBtn.innerHTML;
+        verifyTestPinBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Verifying...';
+        verifyTestPinBtn.disabled = true;
+
+        fetch('{{ url_for("admin.verify_pin") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ pin_code: testPin })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const resultDiv = document.getElementById('testPinResult');
+            if (data.success) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>PIN Verified Successfully!</strong><br>
+                        ${data.message}
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-x-circle me-2"></i>
+                        <strong>Verification Failed:</strong> ${data.message}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('testPinResult').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    An error occurred during verification
+                </div>
+            `;
+        })
+        .finally(() => {
+            verifyTestPinBtn.innerHTML = originalText;
+            verifyTestPinBtn.disabled = false;
+        });
+    });
+
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        notification.style = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1883 @@
+/* DARK THEME RESTAURANT POS SYSTEM - OPTIMIZED FOR LOW-END DEVICES */
+
+/* ========== ADMIN MENU PAGE DARK THEME FIXES ========== */
+
+/* Quick Category Management header background */
+[data-theme="dark"] .bg-gradient-primary {
+    background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-mustard) 100%) !important;
+    color: #1e1e1e !important;
+}
+
+/* Available Items cards backgrounds */
+[data-theme="dark"] .available-items-grid .card,
+[data-theme="dark"] .available-items-grid .item-card,
+[data-theme="dark"] .available-item-card {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Quick Category Items container and cards backgrounds - AGGRESSIVE OVERRIDE */
+[data-theme="dark"] .quick-items-list {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .quick-items-list .card,
+[data-theme="dark"] .quick-items-list .item-card,
+[data-theme="dark"] .quick-items-list .quick-item-card,
+[data-theme="dark"] .quick-item-card,
+[data-theme="dark"] #quickItemsContainer .quick-item-card,
+[data-theme="dark"] div.quick-item-card {
+    background-color: var(--bg-secondary) !important;
+    background: var(--bg-secondary) !important;
+    border-color: var(--card-border) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Specific styling for available-item-card and quick-item-card */
+[data-theme="dark"] .available-item-card {
+    background-color: var(--bg-secondary) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    margin-bottom: 8px !important;
+}
+
+[data-theme="dark"] .quick-item-card,
+[data-theme="dark"] #quickItemsContainer .quick-item-card,
+[data-theme="dark"] div.quick-item-card[data-item-id] {
+    background-color: var(--bg-secondary) !important;
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    margin-bottom: 8px !important;
+}
+
+/* Item info styling within cards */
+[data-theme="dark"] .available-item-card .item-info,
+[data-theme="dark"] .quick-item-card .item-info {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .available-item-card .item-name,
+[data-theme="dark"] .quick-item-card .item-name {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}
+
+/* Badge styling within cards */
+[data-theme="dark"] .available-item-card .category-badge,
+[data-theme="dark"] .quick-item-card .origin-badge {
+    background-color: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+    border: none !important;
+}
+
+[data-theme="dark"] .available-item-card .price-badge,
+[data-theme="dark"] .quick-item-card .price-badge {
+    background-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+    border: none !important;
+}
+
+/* Form check styling */
+[data-theme="dark"] .available-item-card .form-check-label {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .available-item-card .form-check-input:checked {
+    background-color: var(--accent-gold) !important;
+    border-color: var(--accent-gold) !important;
+}
+
+/* Remove button styling */
+[data-theme="dark"] .quick-item-card .btn-outline-danger {
+    border-color: var(--btn-danger-bg) !important;
+    color: var(--btn-danger-bg) !important;
+}
+
+[data-theme="dark"] .quick-item-card .btn-outline-danger:hover {
+    background-color: var(--btn-danger-bg) !important;
+    color: var(--btn-danger-text) !important;
+}
+
+/* Add selected to quick button background */
+[data-theme="dark"] #addToQuickBtn {
+    background-color: var(--btn-success-bg) !important;
+    border-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+[data-theme="dark"] #addToQuickBtn:disabled {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--bg-tertiary) !important;
+    color: var(--text-muted) !important;
+}
+
+/* Add category button background */
+[data-theme="dark"] .btn-success {
+    background-color: var(--btn-success-bg) !important;
+    border-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+/* Table Management header background */
+[data-theme="dark"] .bg-gradient-success {
+    background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-mustard) 100%) !important;
+    color: #000000 !important;
+}
+
+/* Table management section background - 2D planner */
+[data-theme="dark"] .table-planner-container {
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%) !important;
+    border-color: var(--card-border) !important;
+}
+
+[data-theme="dark"] .restaurant-floor {
+    background: linear-gradient(45deg, var(--bg-secondary) 25%, transparent 25%), 
+                linear-gradient(-45deg, var(--bg-secondary) 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, var(--bg-secondary) 75%), 
+                linear-gradient(-45deg, transparent 75%, var(--bg-secondary) 75%) !important;
+    background-color: var(--bg-primary) !important;
+    border-color: var(--card-border) !important;
+}
+
+/* Planner toolbar background */
+[data-theme="dark"] .planner-toolbar {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Override bg-light class in planner toolbar - Multiple selectors for maximum specificity */
+[data-theme="dark"] .planner-toolbar.bg-light,
+[data-theme="dark"] .bg-light.planner-toolbar,
+[data-theme="dark"] div.planner-toolbar.bg-light,
+[data-theme="dark"] .table-planner-container .planner-toolbar.bg-light,
+[data-theme="dark"] .card-body .planner-toolbar.bg-light {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Planner toolbar buttons styling */
+[data-theme="dark"] .planner-toolbar .btn-outline-success {
+    border-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-bg) !important;
+}
+
+[data-theme="dark"] .planner-toolbar .btn-outline-success:hover {
+    background-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+[data-theme="dark"] .planner-toolbar .btn-outline-primary {
+    border-color: var(--accent-gold) !important;
+    color: var(--accent-gold) !important;
+}
+
+[data-theme="dark"] .planner-toolbar .btn-outline-primary:hover {
+    background-color: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+[data-theme="dark"] .planner-toolbar .btn-outline-secondary {
+    border-color: var(--text-secondary) !important;
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .planner-toolbar .btn-outline-secondary:hover {
+    background-color: var(--text-secondary) !important;
+    color: #1e1e1e !important;
+}
+
+/* Zoom level text styling */
+[data-theme="dark"] .planner-toolbar .zoom-level {
+    color: var(--text-primary) !important;
+}
+
+/* Table count badge styling */
+[data-theme="dark"] .planner-toolbar .badge.bg-success {
+    background-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+/* Delivery Company Management header background */
+[data-theme="dark"] .bg-gradient-info {
+    background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-orange) 100%) !important;
+    color: #1e1e1e !important;
+}
+
+/* Search and filter bar background */
+[data-theme="dark"] .bg-light {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* AGGRESSIVE OVERRIDE for bg-light class - Maximum specificity */
+[data-theme="dark"] .bg-light.border-bottom,
+[data-theme="dark"] .bg-light.p-3,
+[data-theme="dark"] .bg-light.p-3.border-bottom,
+[data-theme="dark"] div.bg-light.p-3.border-bottom,
+[data-theme="dark"] .planner-toolbar.p-3.bg-light.border-bottom {
+    background-color: var(--bg-secondary) !important;
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--card-border) !important;
+}
+
+/* NUCLEAR OPTION - Override any bg-light in admin menu context */
+[data-theme="dark"] body .bg-light {
+    background-color: var(--bg-secondary) !important;
+    background: var(--bg-secondary) !important;
+}
+
+/* NUCLEAR OPTION - Force dark backgrounds on all quick-item-card elements */
+[data-theme="dark"] body .quick-item-card,
+[data-theme="dark"] body div.quick-item-card,
+[data-theme="dark"] body #quickItemsContainer div.quick-item-card {
+    background-color: var(--bg-secondary) !important;
+}
+
+/* Advanced Filters WHITE text - Specific targeting only */
+[data-theme="dark"] .bg-gradient-info label,
+[data-theme="dark"] .bg-gradient-info .form-label,
+[data-theme="dark"] .bg-gradient-info .col-form-label {
+    color: #ffffff !important;
+}
+
+/* Admin Dashboard info containers */
+[data-theme="dark"] .alert-info {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--accent-gold) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .admin-info-container,
+[data-theme="dark"] .branch-admin-info,
+[data-theme="dark"] .dashboard-info-alert {
+    background-color: var(--bg-secondary) !important;
+    border: 1px solid var(--accent-gold) !important;
+    color: var(--text-primary) !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+}
+
+/* Form controls in dark theme */
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--accent-gold) !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 219, 88, 0.25) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Input group text */
+[data-theme="dark"] .input-group-text {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* NUCLEAR OPTION - Table Management Cards Dark Theme */
+[data-theme="dark"] body .table-card,
+[data-theme="dark"] body .table-card .card,
+[data-theme="dark"] body .table-card .table-card-inner,
+[data-theme="dark"] body .table-card .card-body,
+[data-theme="dark"] body .table-card.busy,
+[data-theme="dark"] body .table-card.free,
+[data-theme="dark"] body .table-card.busy .card,
+[data-theme="dark"] body .table-card.free .card,
+[data-theme="dark"] body .table-card.busy .table-card-inner,
+[data-theme="dark"] body .table-card.free .table-card-inner {
+    background-color: var(--bg-secondary) !important;
+    background: var(--bg-secondary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] body .table-card.busy .card,
+[data-theme="dark"] body .table-card.busy .table-card-inner {
+    border: 2px solid var(--btn-warning-bg) !important;
+}
+
+[data-theme="dark"] body .table-card.free .card,
+[data-theme="dark"] body .table-card.free .table-card-inner {
+    border: 2px solid var(--btn-success-bg) !important;
+}
+
+[data-theme="dark"] body .table-card h4,
+[data-theme="dark"] body .table-card .table-number h4,
+[data-theme="dark"] body .table-card .fw-bold,
+[data-theme="dark"] body .table-card .order-info .fw-bold {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] body .table-card .text-muted,
+[data-theme="dark"] body .table-card .small.text-muted {
+    color: var(--text-muted) !important;
+}
+
+[data-theme="dark"] body .table-card .fa-solid,
+[data-theme="dark"] body .table-card .fa-utensils {
+    color: var(--accent-gold) !important;
+}
+
+/* NUCLEAR OPTION - Navigation Dropdown Menu Dark Theme */
+[data-theme="dark"] body .dropdown-menu,
+[data-theme="dark"] body .dropdown-menu.show,
+[data-theme="dark"] body ul.dropdown-menu,
+[data-theme="dark"] body ul.dropdown-menu.show {
+    background-color: var(--bg-secondary) !important;
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--card-border) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-theme="dark"] body .dropdown-menu .dropdown-item,
+[data-theme="dark"] body .dropdown-menu li a.dropdown-item {
+    color: var(--text-primary) !important;
+    background-color: transparent !important;
+    background: transparent !important;
+}
+
+[data-theme="dark"] body .dropdown-menu .dropdown-item:hover,
+[data-theme="dark"] body .dropdown-menu .dropdown-item:focus,
+[data-theme="dark"] body .dropdown-menu li a.dropdown-item:hover,
+[data-theme="dark"] body .dropdown-menu li a.dropdown-item:focus {
+    background-color: var(--accent-gold) !important;
+    background: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+[data-theme="dark"] body .dropdown-menu .dropdown-divider,
+[data-theme="dark"] body .dropdown-menu hr.dropdown-divider {
+    border-color: var(--card-border) !important;
+}
+
+[data-theme="dark"] body .dropdown-menu .bi,
+[data-theme="dark"] body .dropdown-menu i.bi {
+    color: var(--accent-gold) !important;
+}
+
+/* Badge styling in dark theme */
+[data-theme="dark"] .badge.bg-info {
+    background-color: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+[data-theme="dark"] .badge.bg-success {
+    background-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+/* Card bodies and containers */
+[data-theme="dark"] .card-body {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .card {
+    background-color: var(--bg-primary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ========== BLACK COLOR FOR SPECIFIC TITLES ========== */
+
+/* Quick Category Management, Delivery Company Management, and Table Management titles - Black color only */
+.bg-gradient-primary .card-title,
+.bg-gradient-info .card-title,
+.bg-gradient-success .card-title {
+    color: #000000 !important;
+}
+
+.bg-gradient-primary .opacity-75,
+.bg-gradient-info .opacity-75,
+.bg-gradient-success .opacity-75 {
+    color: #000000 !important;
+}
+
+/* ========== GLOBAL DARK THEME VARIABLES ========== */
+:root {
+    /* Dark Theme Color Palette */
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #2d2d2d;
+    --bg-tertiary: #3a3a3a;
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --text-muted: #b0b0b0;
+    
+    /* Accent Colors */
+    --accent-gold: #Ffdb58;
+    --accent-orange: #ffa500;
+    --accent-mustard: #cd853f;
+    
+    /* Button Colors */
+    --btn-primary-bg: #Ffdb58;
+    --btn-primary-text: #1e1e1e;
+    --btn-secondary-bg: #3a3a3a;
+    --btn-secondary-text: #ffffff;
+    --btn-success-bg: #28a745;
+    --btn-success-text: #ffffff;
+    --btn-warning-bg: #ffc107;
+    --btn-warning-text: #1e1e1e;
+    --btn-danger-bg: #dc3545;
+    --btn-danger-text: #ffffff;
+    
+    /* Card Colors */
+    --card-bg: transparent;
+    --card-border: #e2d29e62;
+    --card-shadow: rgba(0, 0, 0, 0.3);
+}
+
+/* ========== GLOBAL DARK THEME BASE ========== */
+body {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ========== PERFORMANCE OPTIMIZED STYLES (NO ANIMATIONS) ========== */
+.item-card {
+    cursor: pointer;
+    height: 100%;
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.item-card:hover {
+    box-shadow: 0 4px 8px var(--card-shadow) !important;
+}
+
+.item-card img {
+    height: 100px;
+    object-fit: cover;
+}
+
+/* Order items styling */
+.order-items {
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: var(--bg-secondary) !important;
+}
+
+/* ========== DASHBOARD STATS CARDS - MUSTARD/GOLD THEME ========== */
+
+/* Dashboard stats cards with VARIED mustard/yellow/gold backgrounds */
+.card.bg-primary, .card.text-white.bg-primary {
+    background: linear-gradient(135deg, var(--accent-mustard) 0%, #b8860b 100%) !important; /* Mustard to dark goldenrod */
+    border: 2px solid var(--accent-gold) !important;
+    color: #1e1e1e !important;
+    box-shadow: 0 6px 12px rgba(205, 133, 63, 0.4) !important;
+}
+
+.card.bg-warning, .card.text-white.bg-warning {
+    background: linear-gradient(135deg, #ffd700 0%, var(--accent-gold) 100%) !important; /* Bright yellow to gold */
+    border: 2px solid #daa520 !important;
+    color: #1e1e1e !important;
+    box-shadow: 0 6px 12px rgba(255, 215, 0, 0.4) !important;
+}
+
+.card.bg-success, .card.text-white.bg-success {
+    background: linear-gradient(135deg, #daa520 0%, var(--accent-mustard) 100%) !important; /* Goldenrod to mustard */
+    border: 2px solid var(--accent-gold) !important;
+    color: #1e1e1e !important;
+    box-shadow: 0 6px 12px rgba(218, 165, 32, 0.4) !important;
+}
+
+.card.bg-info, .card.text-white.bg-info {
+    background: linear-gradient(135deg, var(--accent-gold) 0%, #f0e68c 100%) !important; /* Gold to khaki */
+    border: 2px solid #daa520 !important;
+    color: #1e1e1e !important;
+    box-shadow: 0 6px 12px rgba(255, 219, 88, 0.4) !important;
+}
+
+/* Override text colors in stats cards */
+.card.bg-primary .card-title, .card.bg-primary .card-text, .card.bg-primary h1, .card.bg-primary h2, .card.bg-primary h3, .card.bg-primary h4, .card.bg-primary h5, .card.bg-primary h6,
+.card.bg-warning .card-title, .card.bg-warning .card-text, .card.bg-warning h1, .card.bg-warning h2, .card.bg-warning h3, .card.bg-warning h4, .card.bg-warning h5, .card.bg-warning h6,
+.card.bg-success .card-title, .card.bg-success .card-text, .card.bg-success h1, .card.bg-success h2, .card.bg-success h3, .card.bg-success h4, .card.bg-success h5, .card.bg-success h6,
+.card.bg-info .card-title, .card.bg-info .card-text, .card.bg-info h1, .card.bg-info h2, .card.bg-info h3, .card.bg-info h4, .card.bg-info h5, .card.bg-info h6 {
+    color: #1e1e1e !important;
+    font-weight: 600 !important;
+}
+
+/* Small text in stats cards */
+.card.bg-primary small, .card.bg-warning small, .card.bg-success small, .card.bg-info small {
+    color: #2d2d2d !important;
+    font-weight: 500 !important;
+}
+
+/* Icons in stats cards */
+.card.bg-primary i, .card.bg-warning i, .card.bg-success i, .card.bg-info i {
+    color: rgba(30, 30, 30, 0.7) !important;
+}
+
+/* ========== SECTION HEADERS - MUSTARD BACKGROUNDS ========== */
+
+/* Section headers like "Sales Overview" with MUSTARD backgrounds */
+.section-header, .dashboard-section-header, 
+h1.display-6, h2.section-title, h3.section-title,
+.card-header.bg-primary, .card-header.bg-secondary,
+.card-header {
+    background: var(--accent-mustard) !important; /* Pure mustard background */
+    color: #1e1e1e !important;
+    font-weight: 700 !important;
+    border-bottom: 3px solid var(--accent-gold) !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+    text-shadow: none !important;
+    box-shadow: 0 2px 4px rgba(205, 133, 63, 0.3) !important;
+}
+
+/* Dashboard page titles and main headers */
+.dashboard h1, .admin-dashboard h1, .pos-dashboard h1,
+.dashboard h2, .admin-dashboard h2, .pos-dashboard h2,
+h1[class*="display"], h2[class*="display"] {
+    background: var(--accent-mustard) !important; /* Pure mustard */
+    color: #1e1e1e !important;
+    font-weight: 700 !important;
+    padding: 0.75rem 1.5rem !important;
+    border-radius: 0.5rem !important;
+    display: inline-block !important;
+    margin-bottom: 1.5rem !important;
+    border: 2px solid var(--accent-gold) !important;
+    box-shadow: 0 4px 8px rgba(205, 133, 63, 0.3) !important;
+}
+
+/* Chart and section container headers */
+.chart-header, .section-container h3, .section-container h4 {
+    background: var(--accent-mustard) !important;
+    color: #1e1e1e !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 0.375rem !important;
+    margin-bottom: 1rem !important;
+}
+
+/* Dashboard cards */
+.card {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ========== BOOTSTRAP COMPONENT OVERRIDES ========== */
+
+/* ========== NAVIGATION BAR - MUSTARD THEME ========== */
+
+/* Force navbar to use GOLD background */
+.navbar, .navbar-dark, .navbar-light, .navbar.bg-primary {
+    background-color: var(--accent-gold) !important; /* Gold background */
+    border-bottom: 2px solid #daa520 !important; /* Darker gold border */
+}
+
+/* Navbar text - dark text on mustard background for visibility */
+.navbar .navbar-brand, 
+.navbar .nav-link,
+.navbar-dark .navbar-brand, 
+.navbar-dark .nav-link,
+.navbar-light .navbar-brand, 
+.navbar-light .nav-link {
+    color: #1e1e1e !important; /* Dark text for high contrast */
+    font-weight: 600 !important;
+    text-shadow: none !important;
+}
+
+/* Navbar hover effects */
+.navbar .nav-link:hover,
+.navbar-dark .nav-link:hover, 
+.navbar-light .nav-link:hover {
+    color: #000000 !important; /* Pure black on hover */
+    background-color: rgba(255, 219, 88, 0.3) !important;
+    border-radius: 6px !important;
+    transition: all 0.2s ease !important;
+}
+
+/* Navbar toggler for mobile */
+.navbar-toggler {
+    border-color: #1e1e1e !important;
+}
+
+.navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2830, 30, 30, 1%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='m4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+}
+
+/* Dropdown menu in navbar - GOLD theme */
+.navbar .dropdown-menu {
+    background-color: var(--accent-gold) !important; /* Gold background to match navbar */
+    border: 2px solid #daa520 !important; /* Darker gold border */
+    box-shadow: 0 4px 8px rgba(255, 219, 88, 0.3) !important;
+}
+
+.navbar .dropdown-item {
+    color: #1e1e1e !important;
+    font-weight: 500 !important;
+}
+
+.navbar .dropdown-item:hover {
+    background-color: #daa520 !important; /* Darker gold on hover */
+    color: #1e1e1e !important;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--btn-primary-bg) !important;
+    border-color: var(--btn-primary-bg) !important;
+    color: var(--btn-primary-text) !important;
+}
+
+.btn-secondary {
+    background-color: var(--btn-secondary-bg) !important;
+    border-color: var(--btn-secondary-bg) !important;
+    color: var(--btn-secondary-text) !important;
+}
+
+.btn-success {
+    background-color: var(--btn-success-bg) !important;
+    border-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+.btn-warning {
+    background-color: var(--btn-warning-bg) !important;
+    border-color: var(--btn-warning-bg) !important;
+    color: var(--btn-warning-text) !important;
+}
+
+.btn-danger {
+    background-color: var(--btn-danger-bg) !important;
+    border-color: var(--btn-danger-bg) !important;
+    color: var(--btn-danger-text) !important;
+}
+
+/* Forms */
+.form-control, .form-select {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--accent-gold) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 0 0 0.2rem rgba(212, 165, 116, 0.25) !important;
+}
+
+/* Tables */
+.table {
+    color: var(--text-primary) !important;
+}
+
+.table-dark {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.table th {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.table td {
+    border-color: var(--card-border) !important;
+}
+
+/* Modals */
+.modal-content {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.modal-header {
+    border-bottom-color: var(--card-border) !important;
+}
+
+.modal-footer {
+    border-top-color: var(--card-border) !important;
+}
+
+/* Alerts */
+.alert-success {
+    background-color: rgba(40, 167, 69, 0.2) !important;
+    border-color: var(--btn-success-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+.alert-warning {
+    background-color: rgba(255, 193, 7, 0.2) !important;
+    border-color: var(--btn-warning-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+.alert-danger {
+    background-color: rgba(220, 53, 69, 0.2) !important;
+    border-color: var(--btn-danger-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Dropdowns */
+.dropdown-menu {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+}
+
+.dropdown-item {
+    color: var(--text-primary) !important;
+}
+
+.dropdown-item:hover {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--accent-gold) !important;
+}
+
+/* ========== SERVICE BADGE COLORS ========== */
+
+/* Service type specific badge colors - distinct and visible */
+.badge.bg-primary {
+    background-color: #007bff !important; /* Blue for On Table */
+    color: #ffffff !important;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107 !important; /* Yellow for Take Away */
+    color: #000000 !important;
+}
+
+.badge.bg-info {
+    background-color: #17a2b8 !important; /* Teal for Delivery */
+    color: #ffffff !important;
+}
+
+.badge.bg-success {
+    background-color: #28a745 !important; /* Green for Card Payment */
+    color: #ffffff !important;
+}
+
+.badge.bg-secondary {
+    background-color: #6c757d !important; /* Gray for N/A or Other */
+    color: #ffffff !important;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important; /* Red for errors/cancelled */
+    color: #ffffff !important;
+}
+
+/* Generic badge fallback (only for non-service badges) */
+.badge:not(.bg-primary):not(.bg-warning):not(.bg-info):not(.bg-success):not(.bg-secondary):not(.bg-danger) {
+    background-color: var(--accent-gold) !important;
+    color: var(--btn-primary-text) !important;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .item-card {
+        min-height: 120px;
+    }
+    
+    .order-items {
+        max-height: 200px;
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+}
+
+/* Print styles for invoices */
+@media print {
+    .navbar, .btn, .no-print {
+        display: none !important;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+    
+    body {
+        padding: 0;
+        margin: 0;
+    }
+}
+
+/* Responsive design/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+    /* Touch devices */
+    .modern-item:hover {
+        transform: none;
+    }
+    
+    .modern-item:active {
+        transform: scale(0.98);
+    }
+    
+    /* Larger touch targets */
+    .btn {
+        min-height: 44px;
+    }
+    
+    .nav-link {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Enhanced focus states for accessibility */
+    .btn:focus,
+    .form-control:focus,
+    .form-select:focus {
+        outline: 3px solid var(--accent-gold);
+        outline-offset: 2px;
+    }
+}
+
+/* Falafel Hab Custom Price Modal Styling */
+#falafelHabPriceModal .modal-content {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+#falafelHabPriceModal .modal-header {
+    background-color: var(--btn-primary-bg) !important;
+    color: var(--btn-primary-text) !important;
+    border-bottom-color: var(--card-border) !important;
+}
+
+#falafelHabPriceModal .modal-footer {
+    border-top-color: var(--card-border) !important;
+}
+
+#falafelHabPriceModal .form-control {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+#falafelHabPriceModal .calc-btn {
+    min-height: 50px !important;
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+}
+
+#falafelHabPriceModal .quick-price-btn {
+    min-height: 40px !important;
+    font-weight: 600 !important;
+}
+
+[data-theme="dark"] #falafelHabPriceModal .modal-header {
+    background-color: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+[data-theme="dark"] #falafelHabPriceModal .btn-outline-primary {
+    border-color: var(--accent-gold) !important;
+    color: var(--accent-gold) !important;
+}
+
+[data-theme="dark"] #falafelHabPriceModal .btn-outline-primary:hover {
+    background-color: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+[data-theme="dark"] #falafelHabPriceModal .btn-outline-secondary {
+    border-color: var(--btn-secondary-bg) !important;
+    color: var(--btn-secondary-text) !important;
+}
+
+[data-theme="dark"] #falafelHabPriceModal .btn-outline-secondary:hover {
+    background-color: var(--btn-secondary-bg) !important;
+    color: var(--btn-secondary-text) !important;
+}
+
+/* Special Order Custom Price Modal Styling */
+#specialOrderPriceModal .modal-content {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+#specialOrderPriceModal .modal-header {
+    background-color: var(--btn-primary-bg) !important;
+    color: var(--btn-primary-text) !important;
+    border-bottom-color: var(--card-border) !important;
+}
+
+#specialOrderPriceModal .modal-footer {
+    border-top-color: var(--card-border) !important;
+}
+
+#specialOrderPriceModal .form-control {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+#specialOrderPriceModal .special-calc-btn {
+    min-height: 50px !important;
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+}
+
+#specialOrderPriceModal .special-quick-price-btn {
+    min-height: 40px !important;
+    font-weight: 600 !important;
+}
+
+[data-theme="dark"] #specialOrderPriceModal .modal-header {
+    background-color: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+[data-theme="dark"] #specialOrderPriceModal .btn-outline-primary {
+    border-color: var(--accent-gold) !important;
+    color: var(--accent-gold) !important;
+}
+
+[data-theme="dark"] #specialOrderPriceModal .btn-outline-primary:hover {
+    background-color: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+[data-theme="dark"] #specialOrderPriceModal .btn-outline-secondary {
+    border-color: var(--btn-secondary-bg) !important;
+    color: var(--btn-secondary-text) !important;
+}
+
+[data-theme="dark"] #specialOrderPriceModal .btn-outline-secondary:hover {
+    background-color: var(--btn-secondary-bg) !important;
+    color: var(--btn-secondary-text) !important;
+}
+
+/* ========== POS SPECIFIC DARK THEME STYLES ========== */
+
+/* POS Item Cards */
+.modern-item {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.modern-item:hover {
+    box-shadow: 0 4px 8px var(--card-shadow) !important;
+}
+
+/* ========== CURRENT ORDER MENU - WHITE TEXT ========== */
+
+/* Current Order item names should be WHITE */
+.order-items .item-name,
+.order-items .item-name.fw-bold,
+.current-order .item-name,
+.current-order .item-name.fw-bold,
+.order-item .item-name,
+.order-item .item-name.fw-bold {
+    color: #ffffff !important; /* Force white text */
+    font-weight: bold !important;
+}
+
+/* Order Cart */
+.order-items-container {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.order-item {
+    background-color: var(--bg-tertiary) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.order-item.selected {
+    background-color: var(--accent-gold) !important;
+    color: var(--btn-primary-text) !important;
+}
+
+/* ========== TRANSPARENT NAME BADGES FOR ITEMS ========== */
+
+/* Make item name badges TRANSPARENT */
+.transparent-name-badge,
+.item-name-badge,
+.modern-item .transparent-name-badge,
+.pos-item .transparent-name-badge,
+.special-item .transparent-name-badge,
+.regular-item .transparent-name-badge {
+    background-color: transparent !important;
+    background: transparent !important;
+    color: var(--text-primary) !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+/* Ensure text is visible on transparent badges */
+.transparent-name-badge,
+.item-name-badge {
+    color: #ffffff !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+    font-weight: 600 !important;
+}
+
+/* Navigation Tabs */
+.nav-tabs .nav-link {
+    background-color: var(--bg-secondary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-secondary) !important;
+}
+
+.nav-tabs .nav-link.active {
+    background-color: var(--accent-gold) !important;
+    border-color: var(--accent-gold) !important;
+    color: var(--btn-primary-text) !important;
+}
+
+/* Text Colors */
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.text-primary {
+    color: var(--accent-gold) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+.text-success {
+    color: var(--btn-success-bg) !important;
+}
+
+.text-warning {
+    color: var(--btn-warning-bg) !important;
+}
+
+.text-danger {
+    color: var(--btn-danger-bg) !important;
+}
+
+/* List Groups */
+.list-group-item {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Pagination */
+.page-link {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.page-link:hover {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--accent-gold) !important;
+}
+
+.page-item.active .page-link {
+    background-color: var(--accent-gold) !important;
+    border-color: var(--accent-gold) !important;
+    color: var(--btn-primary-text) !important;
+}
+
+/* Progress Bars */
+.progress {
+    background-color: var(--bg-tertiary) !important;
+}
+
+.progress-bar {
+    background-color: var(--accent-gold) !important;
+}
+
+/* Breadcrumbs */
+.breadcrumb {
+    background-color: var(--bg-secondary) !important;
+}
+
+.breadcrumb-item a {
+    color: var(--accent-gold) !important;
+}
+
+/* ========== PERFORMANCE OPTIMIZED DROPDOWN POSITIONING ========== */
+.navbar .dropdown-menu {
+    z-index: 9999 !important;
+    position: absolute !important;
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+}
+
+.navbar {
+    z-index: 1050 !important;
+    position: relative;
+}
+
+.navbar .nav-item.dropdown {
+    position: relative;
+}
+
+.navbar .dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
+    z-index: 9999 !important;
+    min-width: 160px;
+    box-shadow: 0 4px 12px var(--card-shadow) !important;
+    border: 1px solid var(--card-border) !important;
+}
+
+.dropdown-menu.show {
+    z-index: 9999 !important;
+    display: block !important;
+}
+
+.collapsible-navbar {
+    overflow: visible !important;
+}
+
+.collapsible-navbar .dropdown-menu {
+    z-index: 10000 !important;
+    position: fixed !important;
+    top: auto !important;
+    right: 15px !important;
+    left: auto !important;
+    margin-top: 0 !important;
+}
+
+.collapsible-navbar:not(:hover) .dropdown-menu {
+    top: 25px !important;
+}
+
+.collapsible-navbar:hover .dropdown-menu {
+    top: 60px !important;
+}
+
+.collapsible-navbar .nav-item.dropdown {
+    position: static;
+}
+
+@media (max-width: 991.98px) {
+    .collapsible-navbar .dropdown-menu {
+        position: absolute !important;
+        top: 100% !important;
+        right: 0 !important;
+        z-index: 9999 !important;
+    }
+}
+
+/* ========== COMPREHENSIVE TABLE AND CARD DARK THEME ========== */
+
+/* Force all tables to use dark theme */
+table, .table, .table-responsive table {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.table > :not(caption) > * > * {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--card-border) !important;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: var(--bg-tertiary) !important;
+}
+
+.table-hover > tbody > tr:hover > * {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Force all cards to use dark theme (EXCEPT special items) - ENHANCED */
+.card:not(.pos-special-item):not(.special-item-btn):not(.special-item-customizable), 
+.card-body:not(.pos-special-item):not(.special-item-btn):not(.special-item-customizable), 
+.card-header:not(.pos-special-item):not(.special-item-btn):not(.special-item-customizable), 
+.card-footer:not(.pos-special-item):not(.special-item-btn):not(.special-item-customizable) {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* NUCLEAR OPTION - Override ALL Bootstrap card backgrounds */
+.card {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.card-body {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+/* ========== MODAL DIALOGS - DARK THEME OVERRIDE ========== */
+
+/* Modal content needs solid dark background, not transparent */
+.modal-content {
+    background-color: #2d2d2d !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+.modal-header {
+    background-color: #2d2d2d !important;
+    border-bottom-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.modal-body {
+    background-color: #2d2d2d !important;
+    color: var(--text-primary) !important;
+}
+
+.modal-footer {
+    background-color: #2d2d2d !important;
+    border-top-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Modal header with specific background colors */
+.modal-header.bg-danger {
+    background-color: var(--btn-danger-bg) !important;
+    color: var(--btn-danger-text) !important;
+}
+
+.modal-header.bg-warning {
+    background-color: var(--btn-warning-bg) !important;
+    color: var(--btn-warning-text) !important;
+}
+
+.modal-header.bg-success {
+    background-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+.modal-header.bg-primary {
+    background-color: var(--btn-primary-bg) !important;
+    color: var(--btn-primary-text) !important;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Special item colors are applied by the special items section below */
+
+/* Dashboard specific cards */
+.dashboard-card, .stats-card, .metric-card {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Special items and menu cards */
+.special-item, .menu-item, .category-card {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Waiter request cards */
+.waiter-request, .request-card, .order-request {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Table management cards */
+.table-card, .table-status, .table-item {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Order cards and items */
+.order-card, .order-item-card, .recent-order {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Performance and audit log tables */
+.performance-table, .audit-table, .log-table {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Generic white background overrides */
+.bg-white, .bg-light {
+    background-color: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+/* List group items */
+.list-group-item, .list-group-item-action {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+.list-group-item:hover, .list-group-item-action:hover {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--accent-gold) !important;
+}
+
+/* Container and wrapper overrides */
+.container, .container-fluid, .row, .col, [class*="col-"] {
+    background-color: transparent !important;
+}
+
+.main-content, .content-wrapper, .page-content {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Input groups and form elements */
+.input-group-text {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Wells and panels (if any) */
+.well, .panel, .panel-body, .panel-header {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* DataTables specific overrides */
+.dataTables_wrapper, .dataTables_filter, .dataTables_length, .dataTables_info, .dataTables_paginate {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Ensure all text is visible */
+.text-dark {
+    color: var(--text-primary) !important;
+}
+
+.text-black-50 {
+    color: var(--text-muted) !important;
+}
+
+/* Special POS menu items */
+.pos-special-menu, .special-items-container {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ========== SPECIAL ITEMS BUTTONS - DARK COLORS (2 ITEMS PER COLOR) ========== */
+
+/* Special items with alternating DARK colors - 2 items per color */
+.pos-special-item,
+.special-item-btn,
+.special-items .btn,
+.special-items button,
+.special-item-customizable,
+.special-item-color-1,
+.special-item-color-2,
+.modern-item.special-item-customizable {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    border: 2px solid rgba(255, 255, 255, 0.2) !important;
+    transition: none !important; /* No animations for performance */
+    background: none !important; /* Override any existing gradients */
+}
+
+/* Dark Red - Items 1-2, 13-14, 25-26, etc. */
+.pos-special-item:nth-child(12n+1),
+.pos-special-item:nth-child(12n+2),
+.special-item-customizable:nth-child(12n+1),
+.special-item-customizable:nth-child(12n+2),
+.modern-item.special-item-customizable:nth-child(12n+1),
+.modern-item.special-item-customizable:nth-child(12n+2) {
+    background-color: #8B0000 !important; /* Dark red */
+    background: #8B0000 !important; /* Override gradients */
+}
+
+/* Navy Blue - Items 3-4, 15-16, 27-28, etc. */
+.pos-special-item:nth-child(12n+3),
+.pos-special-item:nth-child(12n+4),
+.special-item-customizable:nth-child(12n+3),
+.special-item-customizable:nth-child(12n+4),
+.modern-item.special-item-customizable:nth-child(12n+3),
+.modern-item.special-item-customizable:nth-child(12n+4) {
+    background-color: #000080 !important; /* Navy blue */
+    background: #000080 !important; /* Override gradients */
+}
+
+/* Dark Green - Items 5-6, 17-18, 29-30, etc. */
+.pos-special-item:nth-child(12n+5),
+.pos-special-item:nth-child(12n+6),
+.special-item-customizable:nth-child(12n+5),
+.special-item-customizable:nth-child(12n+6),
+.modern-item.special-item-customizable:nth-child(12n+5),
+.modern-item.special-item-customizable:nth-child(12n+6) {
+    background-color: #006400 !important; /* Dark green */
+    background: #006400 !important; /* Override gradients */
+}
+
+/* Indigo Purple - Items 7-8, 19-20, 31-32, etc. */
+.pos-special-item:nth-child(12n+7),
+.pos-special-item:nth-child(12n+8),
+.special-item-customizable:nth-child(12n+7),
+.special-item-customizable:nth-child(12n+8),
+.modern-item.special-item-customizable:nth-child(12n+7),
+.modern-item.special-item-customizable:nth-child(12n+8) {
+    background-color: #4B0082 !important; /* Indigo */
+    background: #4B0082 !important; /* Override gradients */
+}
+
+/* Dark Orange - Items 9-10, 21-22, 33-34, etc. */
+.pos-special-item:nth-child(12n+9),
+.pos-special-item:nth-child(12n+10),
+.special-item-customizable:nth-child(12n+9),
+.special-item-customizable:nth-child(12n+10),
+.modern-item.special-item-customizable:nth-child(12n+9),
+.modern-item.special-item-customizable:nth-child(12n+10) {
+    background-color: #CC4125 !important; /* Dark orange */
+    background: #CC4125 !important; /* Override gradients */
+}
+
+/* Dark Slate Gray - Items 11-12, 23-24, 35-36, etc. */
+.pos-special-item:nth-child(12n+11),
+.pos-special-item:nth-child(12n+12),
+.special-item-customizable:nth-child(12n+11),
+.special-item-customizable:nth-child(12n+12),
+.modern-item.special-item-customizable:nth-child(12n+11),
+.modern-item.special-item-customizable:nth-child(12n+12) {
+    background-color: #2F4F4F !important; /* Dark slate gray */
+    background: #2F4F4F !important; /* Override gradients */
+}
+
+/* Hover effects for special items - slightly lighter versions */
+.pos-special-item:nth-child(12n+1):hover,
+.pos-special-item:nth-child(12n+2):hover { background-color: #A52A2A !important; } /* Brown red hover */
+
+.pos-special-item:nth-child(12n+3):hover,
+.pos-special-item:nth-child(12n+4):hover { background-color: #191970 !important; } /* Midnight blue hover */
+
+.pos-special-item:nth-child(12n+5):hover,
+.pos-special-item:nth-child(12n+6):hover { background-color: #228B22 !important; } /* Forest green hover */
+
+.pos-special-item:nth-child(12n+7):hover,
+.pos-special-item:nth-child(12n+8):hover { background-color: #663399 !important; } /* Rebecca purple hover */
+
+.pos-special-item:nth-child(12n+9):hover,
+.pos-special-item:nth-child(12n+10):hover { background-color: #D2691E !important; } /* Chocolate hover */
+
+.pos-special-item:nth-child(12n+11):hover,
+.pos-special-item:nth-child(12n+12):hover { background-color: #708090 !important; } /* Slate gray hover */
+
+/* Override existing special item color classes */
+.special-item-color-1,
+.special-item-color-2 {
+    background: none !important;
+    border-left: none !important;
+}
+
+/* Ensure text remains white on all special items */
+.pos-special-item,
+.special-item-btn,
+.special-items .btn,
+.special-item-customizable,
+.modern-item.special-item-customizable {
+    color: #ffffff !important;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* ========== WAITER REQUESTS ORDER CARDS - DARK THEME ========== */
+
+/* Waiter requests order cards complete dark theme integration - ENHANCED SPECIFICITY */
+.waiter-requests .card,
+.waiter-requests .card-body,
+.order-card,
+.order-card.card,
+.card.order-card,
+.card.order-card.pending,
+.card.order-card.shadow-sm,
+.order-card .card-body,
+.card.order-card .card-body,
+.card.order-card.pending .card-body {
+    background-color: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 2px 8px var(--card-shadow) !important;
+}
+
+/* Force override for all Bootstrap card classes */
+.card.order-card,
+.card.order-card.pending,
+.card.order-card.shadow-sm {
+    background: var(--card-bg) !important;
+    background-color: var(--card-bg) !important;
+}
+
+/* Order card text elements */
+.waiter-requests .order-number,
+.order-card .order-number {
+    color: var(--accent-gold) !important;
+    font-weight: 700 !important;
+}
+
+.waiter-requests .waiter-info,
+.waiter-requests .table-info,
+.order-card .waiter-info,
+.order-card .table-info {
+    color: var(--text-primary) !important;
+}
+
+.waiter-requests .waiter-info .fw-bold,
+.waiter-requests .table-info .fw-bold,
+.order-card .waiter-info .fw-bold,
+.order-card .table-info .fw-bold {
+    color: var(--text-primary) !important;
+}
+
+.waiter-requests .order-amount,
+.order-card .order-amount {
+    color: var(--btn-success-bg) !important;
+    font-weight: 700 !important;
+}
+
+.waiter-requests .text-muted,
+.order-card .text-muted {
+    color: var(--text-muted) !important;
+}
+
+.waiter-requests .order-time,
+.order-card .order-time {
+    color: var(--text-muted) !important;
+}
+
+/* Icons in order cards */
+.waiter-requests .bi-person-badge,
+.order-card .bi-person-badge {
+    color: var(--btn-warning-bg) !important;
+}
+
+.waiter-requests .bi-table,
+.order-card .bi-table {
+    color: var(--accent-gold) !important;
+}
+
+.waiter-requests .bi-basket,
+.waiter-requests .bi-clock,
+.order-card .bi-basket,
+.order-card .bi-clock {
+    color: var(--text-muted) !important;
+}
+
+/* Action buttons in order cards */
+.waiter-requests .btn-outline-primary,
+.order-card .btn-outline-primary {
+    border-color: var(--accent-gold) !important;
+    color: var(--accent-gold) !important;
+    background-color: transparent !important;
+}
+
+.waiter-requests .btn-outline-primary:hover,
+.order-card .btn-outline-primary:hover {
+    background-color: var(--accent-gold) !important;
+    border-color: var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+.waiter-requests .btn-success,
+.order-card .btn-success {
+    background-color: var(--btn-success-bg) !important;
+    border-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+/* Status badges in order cards */
+.waiter-requests .status-badge.bg-warning,
+.order-card .status-badge.bg-warning {
+    background-color: var(--btn-warning-bg) !important;
+    color: var(--btn-warning-text) !important;
+}
+
+.waiter-requests .status-badge.bg-success,
+.order-card .status-badge.bg-success {
+    background-color: var(--btn-success-bg) !important;
+    color: var(--btn-success-text) !important;
+}
+
+/* ========== COMPREHENSIVE BOOTSTRAP OVERRIDES ========== */
+
+/* Override Bootstrap background utilities (excluding service badges) */
+.bg-primary:not(.badge) {
+    background-color: var(--bg-secondary) !important;
+}
+
+.bg-secondary:not(.badge) {
+    background-color: var(--bg-tertiary) !important;
+}
+
+.bg-success:not(.badge) {
+    background-color: var(--btn-success-bg) !important;
+}
+
+.bg-warning:not(.badge) {
+    background-color: var(--btn-warning-bg) !important;
+}
+
+.bg-danger:not(.badge) {
+    background-color: var(--btn-danger-bg) !important;
+}
+
+.bg-info:not(.badge) {
+    background-color: #17a2b8 !important;
+}
+
+/* Force all card variants to dark theme */
+.card.bg-primary, .card.bg-secondary, .card.bg-success, 
+.card.bg-warning, .card.bg-danger, .card.bg-info {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+}
+
+/* Override text colors for better contrast */
+.card.bg-primary .card-title, .card.bg-primary .card-text,
+.card.bg-secondary .card-title, .card.bg-secondary .card-text,
+.card.bg-success .card-title, .card.bg-success .card-text,
+.card.bg-warning .card-title, .card.bg-warning .card-text,
+.card.bg-danger .card-title, .card.bg-danger .card-text,
+.card.bg-info .card-title, .card.bg-info .card-text {
+    color: var(--text-primary) !important;
+}
+
+/* Force all table variants to dark theme */
+.table-primary, .table-secondary, .table-success, 
+.table-warning, .table-danger, .table-info,
+.table-light, .table-dark {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Table cells with background colors */
+.table-primary > td, .table-primary > th,
+.table-secondary > td, .table-secondary > th,
+.table-success > td, .table-success > th,
+.table-warning > td, .table-warning > th,
+.table-danger > td, .table-danger > th,
+.table-info > td, .table-info > th,
+.table-light > td, .table-light > th,
+.table-dark > td, .table-dark > th {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--card-border) !important;
+}
+
+/* Shadow and border overrides */
+.shadow, .shadow-sm, .shadow-lg {
+    box-shadow: 0 0.125rem 0.25rem var(--card-shadow) !important;
+}
+
+.border, .border-top, .border-bottom, .border-start, .border-end {
+    border-color: var(--card-border) !important;
+}
+
+/* Status indicators for table management */
+.table-status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.table-status-indicator.free {
+    background-color: var(--btn-success-bg) !important;
+}
+
+.table-status-indicator.busy {
+    background-color: var(--btn-danger-bg) !important;
+}
+
+.table-status-indicator.pending {
+    background-color: var(--btn-warning-bg) !important;
+}
+
+/* ========== DASHBOARD SPECIFIC MUSTARD THEME OVERRIDES ========== */
+
+/* Dashboard stats cards - force mustard theme */
+.stats-card, .metric-card, .dashboard-card {
+    background: linear-gradient(135deg, var(--accent-mustard) 0%, var(--accent-gold) 100%) !important;
+    border: 1px solid var(--accent-gold) !important;
+    color: #1e1e1e !important;
+    box-shadow: 0 4px 8px rgba(205, 133, 63, 0.3) !important;
+}
+
+/* Dashboard section headers */
+.dashboard-header, .section-title, .page-header {
+    background: linear-gradient(135deg, var(--accent-mustard) 0%, var(--accent-gold) 100%) !important;
+    color: #1e1e1e !important;
+    font-weight: 600 !important;
+    padding: 0.75rem 1rem !important;
+    border-radius: 0.375rem !important;
+    margin-bottom: 1rem !important;
+}
+
+/* Force all dashboard cards to use mustard theme */
+.dashboard .card, .admin-dashboard .card, .pos-dashboard .card {
+    background: linear-gradient(135deg, var(--accent-mustard) 0%, var(--accent-gold) 100%) !important;
+    border: 1px solid var(--accent-gold) !important;
+    color: #1e1e1e !important;
+}
+
+/* Dashboard card text */
+.dashboard .card *, .admin-dashboard .card *, .pos-dashboard .card * {
+    color: #1e1e1e !important;
+}
+
+/* Dashboard page titles */
+.dashboard h1, .admin-dashboard h1, .pos-dashboard h1,
+.dashboard h2, .admin-dashboard h2, .pos-dashboard h2 {
+    background: linear-gradient(135deg, var(--accent-mustard) 0%, var(--accent-gold) 100%) !important;
+    color: #1e1e1e !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 0.375rem !important;
+    display: inline-block !important;
+    margin-bottom: 1rem !important;
+}
+
+/* Order request cards */
+.order-request-card, .waiter-request-card {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Table cards */
+.table-card, .table-item-card {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Menu management cards */
+.category-management-card, .menu-management-card {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Performance and audit cards */
+.performance-card, .audit-card {
+    background-color: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Force all divs with white backgrounds */
+div[style*="background-color: white"], 
+div[style*="background-color: #fff"],
+div[style*="background-color: #ffffff"] {
+    background-color: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ========== NUCLEAR OPTION - OVERRIDE ALL WHITE BACKGROUNDS ========== */
+
+/* Catch any remaining white backgrounds - comprehensive override */
+
+*[style*="background: white"],
+*[style*="background: #fff"],
+*[style*="background: #ffffff"],
+*[style*="background-color: white"],
+*[style*="background-color: #fff"],
+*[style*="background-color: #ffffff"] {
+    background-color: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Override any remaining Bootstrap white utilities */
+.bg-white {
+    background-color: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+.text-white {
+    color: var(--text-primary) !important;
+}
+
+/* Ensure all table elements are dark */
+tbody, thead, tfoot, tr, td, th {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+    border-color: var(--card-border) !important;
+}
+
+/* Override any inline styles on tables */
+table[style*="background"],
+tr[style*="background"],
+td[style*="background"],
+th[style*="background"] {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Special handling for DataTables if present */
+.dataTable, .dataTable tbody, .dataTable thead, .dataTable tfoot {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.dataTable tbody tr, .dataTable thead tr, .dataTable tfoot tr {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.dataTable tbody tr:hover {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Override any remaining card backgrounds */
+.card[class*="bg-"], .card-body[class*="bg-"], .card-header[class*="bg-"] {
+    background-color: var(--card-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ========== MOBILE OPTIMIZATION ========== */
+@media (max-width: 576px) {
+    body {
+        font-size: 14px;
+    }
+    
+    .card {
+        margin-bottom: 0.5rem;
+    }
+    
+    .btn {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+}

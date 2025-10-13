@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Branch - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-pencil-square"></i> Edit Branch: {{ branch.name }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Branch Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" value="{{ branch.name }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="code" class="form-label">Branch Code *</label>
+                                <input type="text" class="form-control" id="code" name="code" value="{{ branch.code }}" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <textarea class="form-control" id="address" name="address" rows="3">{{ branch.address or '' }}</textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="phone" name="phone" value="{{ branch.phone or '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" name="email" value="{{ branch.email or '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="manager_name" class="form-label">Manager Name</label>
+                        <input type="text" class="form-control" id="manager_name" name="manager_name" value="{{ branch.manager_name or '' }}">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="timezone" class="form-label">Timezone</label>
+                                <select class="form-control" id="timezone" name="timezone">
+                                    <option value="UTC" {% if branch.timezone == 'UTC' %}selected{% endif %}>UTC</option>
+                                    <option value="Asia/Qatar" {% if branch.timezone == 'Asia/Qatar' %}selected{% endif %}>Asia/Qatar</option>
+                                    <option value="Asia/Dubai" {% if branch.timezone == 'Asia/Dubai' %}selected{% endif %}>Asia/Dubai</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="currency" class="form-label">Currency</label>
+                                <select class="form-control" id="currency" name="currency">
+                                    <option value="QAR" {% if branch.currency == 'QAR' %}selected{% endif %}>QAR</option>
+                                    <option value="USD" {% if branch.currency == 'USD' %}selected{% endif %}>USD</option>
+                                    <option value="EUR" {% if branch.currency == 'EUR' %}selected{% endif %}>EUR</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="tax_rate" class="form-label">Tax Rate (%)</label>
+                                <input type="number" class="form-control" id="tax_rate" name="tax_rate" min="0" max="100" step="0.01" value="{{ (branch.tax_rate * 100) if branch.tax_rate else 0 }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="service_charge" class="form-label">Service Charge (%)</label>
+                                <input type="number" class="form-control" id="service_charge" name="service_charge" min="0" max="100" step="0.01" value="{{ (branch.service_charge * 100) if branch.service_charge else 0 }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Branch Status Information -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Branch Status</label>
+                                <div class="form-control-plaintext">
+                                    {% if branch.is_active %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-check-circle"></i> Active
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-x-circle"></i> Inactive
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Created Date</label>
+                                <div class="form-control-plaintext">
+                                    {{ branch.created_at | local_datetime_short if branch.created_at else 'N/A' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('superuser.branches') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Branches
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Update Branch
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

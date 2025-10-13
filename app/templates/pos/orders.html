@@ -1,0 +1,2149 @@
+{% extends "base.html" %}
+
+{% block title %}My Orders - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1>My Orders</h1>
+            <a href="{{ url_for('pos.dashboard') }}" class="btn btn-primary">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+        </div>
+        
+        <!-- Filters -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="ordersFilterForm" class="row g-3">
+                    <div class="col-md-2">
+                        <label for="tableFilter" class="form-label">Table</label>
+                        <select class="form-select" name="table_id" id="tableFilter">
+                            <option value="">All Tables</option>
+                            {% for table in tables %}
+                            <option value="{{ table.id }}" {% if filters.table_id == table.id|string %}selected{% endif %}>
+                                Table {{ table.table_number }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="serviceTypeFilter" class="form-label">Service Type</label>
+                        <select class="form-select" name="service_type" id="serviceTypeFilter">
+                            <option value="">All Service Types</option>
+                            <option value="on_table" {% if filters.service_type == 'on_table' %}selected{% endif %}>On Table</option>
+                            <option value="take_away" {% if filters.service_type == 'take_away' %}selected{% endif %}>Take Away</option>
+                            <option value="delivery" {% if filters.service_type == 'delivery' %}selected{% endif %}>Delivery</option>
+                            <option value="card" {% if filters.service_type == 'card' %}selected{% endif %}>Card Payment</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2" id="deliveryCompanyDiv" style="display: none;">
+                        <label for="deliveryCompanyFilter" class="form-label">Delivery Company</label>
+                        <select class="form-select" name="delivery_company" id="deliveryCompanyFilter">
+                            <option value="">All Companies</option>
+                            <!-- Options will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="dateFrom" class="form-label">From</label>
+                        <input type="date" class="form-control" id="dateFrom" name="date_from" 
+                               value="{{ filters.date_from }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="dateTo" class="form-label">To</label>
+                        <input type="date" class="form-control" id="dateTo" name="date_to" 
+                               value="{{ filters.date_to }}">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="btn-group w-100" role="group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-funnel"></i> Filter
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearFilters">
+                                <i class="bi bi-x-circle"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Count #</th>
+                                <th>Table</th>
+                                <th>Items</th>
+                                <th>Total (QAR)</th>
+                                <th>Service</th>
+                                <th>Created By</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                            {% for order in orders.items %}
+                            <tr data-order-id="{{ order.id }}">
+                                <td>{{ order.order_number }}</td>
+                                <td>
+                                    {% if order.order_counter %}
+                                        <span class="badge bg-dark">{{ order.order_counter }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ order.table.table_number if order.table else 'N/A' }}</td>
+                                <td>
+                                    {% set regular_items = [] %}
+                                    {% for item in order.order_items %}
+                                        {% if 'طلبات خاصة' not in item.menu_item.name %}
+                                            {% set _ = regular_items.append(item) %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <span class="badge bg-info">{{ regular_items | length }}</span>
+                                </td>
+                                <td>{{ "%.2f"|format(order.total_amount) }}</td>
+                                <td>
+                                    {% if order.service_type %}
+                                        {% if order.service_type.value == 'on_table' %}
+                                            <span class="badge bg-primary">On Table</span>
+                                        {% elif order.service_type.value == 'take_away' %}
+                                            <span class="badge bg-warning">Take Away</span>
+                                        {% elif order.service_type.value == 'delivery' %}
+                                            <span class="badge bg-info">Delivery</span>
+                                            {% if order.delivery_company_info %}
+                                                <br><small class="text-muted">{{ order.delivery_company_info.name }}</small>
+                                            {% endif %}
+                                        {% elif order.service_type.value == 'card' %}
+                                            <span class="badge bg-success">Card Payment</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ order.service_type.value.replace('_', ' ').title() }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% set creator = order.cashier %}
+                                    {% if creator %}
+                                        <div class="d-flex align-items-center">
+                                            {% if creator.role.value == 'waiter' %}
+                                                <i class="bi bi-person-badge text-warning me-1" title="Waiter"></i>
+                                                <span class="badge bg-warning text-dark">{{ creator.get_full_name() }}</span>
+                                            {% elif creator.role.value == 'cashier' %}
+                                                <i class="bi bi-cash-register text-success me-1" title="Cashier"></i>
+                                                <span class="badge bg-success">{{ creator.get_full_name() }}</span>
+                                            {% else %}
+                                                <i class="bi bi-person text-secondary me-1"></i>
+                                                <span class="badge bg-secondary">{{ creator.get_full_name() }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <small class="text-muted">{{ creator.role.value.replace('_', ' ').title() }}</small>
+                                    {% else %}
+                                        <span class="text-muted">Unknown</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if order.status %}
+                                        {% if order.status.value == 'paid' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-check-circle me-1"></i>Paid
+                                            </span>
+                                            {% if order.paid_at %}
+                                                <br><small class="text-muted">{{ order.paid_at | local_time }}</small>
+                                            {% endif %}
+                                        {% elif order.status.value == 'pending' %}
+                                            <span class="badge bg-warning">
+                                                <i class="bi bi-clock me-1"></i>Pending
+                                            </span>
+                                        {% elif order.status.value == 'cancelled' %}
+                                            <span class="badge bg-danger">
+                                                <i class="bi bi-x-circle me-1"></i>Cancelled
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">Unknown</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ order.created_at | local_datetime_short }}
+                                    {% if order.edit_count and order.edit_count > 0 %}
+                                        <br><span class="badge bg-warning text-dark">
+                                            <i class="bi bi-pencil-square me-1"></i>Edited {{ order.edit_count }}x
+                                        </span>
+                                        {% if order.last_edited_at %}
+                                            <br><small class="text-muted">Last: {{ order.last_edited_at | local_datetime_short }}</small>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-outline-primary view-invoice-modal" data-order-id="{{ order.id }}">
+                                            <i class="bi bi-receipt"></i> Invoice
+                                        </button>
+                                        {% if current_user.role.value == 'cashier' and ((order.status and order.status.value == 'pending') or (order.status and order.status.value == 'paid' and (order.service_type and order.service_type.value in ['delivery', 'take_away']) or (order.payment_method and order.payment_method.value == 'card'))) %}
+                                            <button class="btn btn-sm btn-warning edit-order-btn" data-order-id="{{ order.id }}" title="Edit Order (Admin PIN Required for Paid Orders)">
+                                                <i class="bi bi-pencil-square"></i> Edit
+                                            </button>
+                                        {% endif %}
+                                        {% if current_user.role.value in ['cashier', 'branch_admin', 'super_user'] and order.status and order.status.value == 'pending' %}
+                                            <button class="btn btn-sm btn-success mark-paid-btn" data-order-id="{{ order.id }}" title="Mark as Paid">
+                                                <i class="bi bi-check-circle"></i> Mark Paid
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <nav aria-label="Orders pagination" id="ordersPagination">
+                    <ul class="pagination justify-content-center">
+                        {% if orders.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="#" data-page="{{ orders.prev_num }}">Previous</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Previous</span>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in orders.iter_pages() %}
+                            {% if page_num %}
+                                {% if page_num != orders.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="#" data-page="{{ page_num }}">{{ page_num }}</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if orders.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="#" data-page="{{ orders.next_num }}">Next</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">Next</span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invoice Modal -->
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="invoiceModalLabel">
+                    <i class="bi bi-receipt-cutoff me-2"></i>Order Invoice
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="invoiceContent">
+                <!-- Invoice content will be loaded here -->
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading invoice...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Close
+                </button>
+                <button type="button" class="btn btn-primary" id="printInvoiceBtn">
+                    <i class="bi bi-printer me-2"></i>Print Invoice
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Admin PIN Verification Modal for Order Editing -->
+<div class="modal fade" id="adminPinEditModal" tabindex="-1" aria-labelledby="adminPinEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="adminPinEditModalLabel">
+                    <i class="bi bi-shield-lock me-2"></i>Admin PIN Required for Order Editing
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-4">
+                    <i class="bi bi-exclamation-triangle display-1 text-warning mb-3"></i>
+                    <h6>Admin authorization required to edit orders</h6>
+                    <p class="text-muted">Ask your admin to enter their PIN to authorize order editing</p>
+                </div>
+                
+                <div class="mb-4">
+                    <input type="password" 
+                           class="form-control form-control-lg text-center" 
+                           id="adminPinEditInput" 
+                           maxlength="4" 
+                           placeholder="••••"
+                           style="font-size: 2rem; letter-spacing: 1rem; max-width: 200px; margin: 0 auto;">
+                </div>
+                
+                <div id="pinEditVerificationResult"></div>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-warning" id="verifyPinEditBtn">
+                    <i class="bi bi-key me-2"></i>Verify PIN
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Edit Modal -->
+<div class="modal fade" id="orderEditModal" tabindex="-1" aria-labelledby="orderEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="orderEditModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Order <span id="editOrderNumber"></span>
+                </h5>
+                <div class="d-flex align-items-center gap-3">
+                    <span id="editOrderBadge" class="badge bg-warning">
+                        <i class="bi bi-clock me-1"></i>Edited: <span id="editTimestamp"></span>
+                    </span>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0">
+                <div class="row g-0 h-100">
+                    <!-- Menu Items Section (Left Side) -->
+                    <div class="col-lg-8 border-end">
+                        <div class="p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-plus-circle me-2"></i>Add Items to Order
+                                </h6>
+                                <small class="text-muted">Click regular item first, then special item to assign it</small>
+                            </div>
+                            
+                            <!-- Categories and Menu Items -->
+                            <div id="editMenuContainer">
+                                <!-- Menu items will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Order Items Section (Right Side) -->
+                    <div class="col-lg-4">
+                        <div class="p-3 h-100 d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-list-ul me-2"></i>Current Order Items
+                                </h6>
+                                <span class="badge bg-info" id="editItemsCount">0 items</span>
+                            </div>
+                            
+                            <!-- Order Items List -->
+                            <div class="flex-grow-1 overflow-auto" id="editOrderItemsList" style="max-height: 60vh;">
+                                <!-- Order items will be loaded here -->
+                            </div>
+                            
+                            <!-- Order Summary -->
+                            <div class="border-top pt-3 mt-3">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <strong>Original Total:</strong>
+                                    <span id="editOriginalTotal">0.00 QAR</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <strong>Current Total:</strong>
+                                    <strong id="editCurrentTotal" class="text-primary">0.00 QAR</strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-3">
+                                    <strong>Difference:</strong>
+                                    <strong id="editTotalDifference" class="text-success">+0.00 QAR</strong>
+                                </div>
+                                
+                                <!-- Action Buttons -->
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-success" id="saveOrderChanges">
+                                        <i class="bi bi-check-circle me-2"></i>Save Changes
+                                    </button>
+                                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                        <i class="bi bi-x-circle me-2"></i>Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Price Modal for Special Items -->
+<div class="modal fade" id="customPriceEditModal" tabindex="-1" aria-labelledby="customPriceEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="customPriceEditModalLabel">
+                    <i class="bi bi-calculator me-2"></i>Set Custom Price
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <h6 class="text-muted">Enter price for <span id="customPriceItemName"></span></h6>
+                </div>
+                
+                <div class="mb-3">
+                    <input type="number" 
+                           class="form-control form-control-lg text-center" 
+                           id="customPriceInput" 
+                           placeholder="0.00"
+                           step="0.01"
+                           min="0">
+                </div>
+                
+                <!-- Quick Price Buttons -->
+                <div class="row g-2 mb-3">
+                    <div class="col-3">
+                        <button class="btn btn-outline-primary w-100 quick-price-edit-btn" data-price="5">5</button>
+                    </div>
+                    <div class="col-3">
+                        <button class="btn btn-outline-primary w-100 quick-price-edit-btn" data-price="10">10</button>
+                    </div>
+                    <div class="col-3">
+                        <button class="btn btn-outline-primary w-100 quick-price-edit-btn" data-price="15">15</button>
+                    </div>
+                    <div class="col-3">
+                        <button class="btn btn-outline-primary w-100 quick-price-edit-btn" data-price="20">20</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmCustomPrice">
+                    <i class="bi bi-check-circle me-1"></i>Add to Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+// Load orders with AJAX - Global function
+function loadOrders(page = 1) {
+    const formData = new FormData(document.getElementById('ordersFilterForm'));
+    const params = new URLSearchParams();
+    for (const [key, value] of formData) {
+        if (value) {
+            params.append(key, value);
+        }
+    }
+    params.append('page', page);
+    params.append('per_page', 10);
+    
+    fetch(`{{ url_for('pos.orders') }}?${params.toString()}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update table body
+            const tableBody = document.getElementById('ordersTableBody');
+            tableBody.innerHTML = '';
+            
+            data.orders.forEach(order => {
+                const row = document.createElement('tr');
+                row.dataset.orderId = order.id;
+                
+                // Format service type badge
+                let serviceBadge = '<span class="badge bg-secondary">N/A</span>';
+                if (order.service_type) {
+                    switch(order.service_type) {
+                        case 'on_table':
+                            serviceBadge = '<span class="badge bg-primary">On Table</span>';
+                            break;
+                        case 'take_away':
+                            serviceBadge = '<span class="badge bg-warning">Take Away</span>';
+                            break;
+                        case 'delivery':
+                            serviceBadge = '<span class="badge bg-info">Delivery</span>';
+                            if (order.delivery_company) {
+                                serviceBadge += `<br><small class="text-muted">${order.delivery_company}</small>`;
+                            }
+                            break;
+                        case 'card':
+                            serviceBadge = '<span class="badge bg-success">Card Payment</span>';
+                            break;
+                        default:
+                            serviceBadge = `<span class="badge bg-secondary">${order.service_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>`;
+                    }
+                }
+                
+                // Format creator information
+                let creatorBadge = '<span class="text-muted">Unknown</span>';
+                if (order.creator_name) {
+                    let icon = '<i class="bi bi-person text-primary me-1"></i>';
+                    let badgeClass = 'bg-primary';
+                    
+                    if (order.creator_role === 'waiter') {
+                        icon = '<i class="bi bi-person-badge text-warning me-1" title="Waiter"></i>';
+                        badgeClass = 'bg-warning text-dark';
+                    } else if (order.creator_role === 'cashier') {
+                        icon = '<i class="bi bi-cash-register text-success me-1" title="Cashier"></i>';
+                        badgeClass = 'bg-success';
+                    }
+                    
+                    creatorBadge = `
+                        <div class="d-flex align-items-center">
+                            ${icon}
+                            <span class="badge ${badgeClass}">${order.creator_name}</span>
+                        </div>
+                        <small class="text-muted">${order.creator_role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</small>
+                    `;
+                }
+                
+                // Format status badge
+                let statusBadge = '<span class="badge bg-secondary">Unknown</span>';
+                if (order.status) {
+                    switch(order.status) {
+                        case 'paid':
+                            statusBadge = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Paid</span>';
+                            if (order.paid_at) {
+                                statusBadge += `<br><small class="text-muted">${new Date(order.paid_at).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}</small>`;
+                            }
+                            break;
+                        case 'pending':
+                            statusBadge = '<span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pending</span>';
+                            break;
+                        case 'cancelled':
+                            statusBadge = '<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Cancelled</span>';
+                            break;
+                    }
+                }
+                
+                // Build action buttons
+                let actionButtons = `
+                    <button class="btn btn-sm btn-outline-primary view-invoice-modal" data-order-id="${order.id}">
+                        <i class="bi bi-eye"></i> View
+                    </button>
+                `;
+                
+                // Add edit button for editable orders (cashiers only)
+                if (order.can_edit) {
+                    actionButtons += `
+                        <button class="btn btn-sm btn-warning edit-order-btn ms-1" data-order-id="${order.id}" title="Edit Order (Admin PIN Required for Paid Orders)">
+                            <i class="bi bi-pencil-square"></i> Edit
+                        </button>
+                    `;
+                }
+                
+                // Add mark as paid button for pending orders (cashiers only)
+                if (order.can_mark_paid) {
+                    actionButtons += `
+                        <button class="btn btn-sm btn-success mark-paid-btn ms-1" data-order-id="${order.id}">
+                            <i class="bi bi-check-circle"></i> Mark Paid
+                        </button>
+                    `;
+                }
+                
+                row.innerHTML = `
+                    <td>${order.order_number}</td>
+                    <td>${order.created_at}</td>
+                    <td>${creatorBadge}</td>
+                    <td>${order.table_number !== 'N/A' ? 'Table ' + order.table_number : 'N/A'}</td>
+                    <td>${serviceBadge}</td>
+                    <td>${statusBadge}</td>
+                    <td>QAR ${parseFloat(order.total_amount).toFixed(2)}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            ${actionButtons}
+                        </div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Update pagination
+            updatePagination(data.pagination);
+        } else {
+            showNotification('Error loading orders: ' + (data.message || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading orders:', error);
+        showNotification('Error loading orders', 'error');
+    });
+}
+
+// Function to update pagination
+function updatePagination(pagination) {
+    const paginationElement = document.getElementById('ordersPagination');
+    let paginationHtml = '';
+    
+    // Previous button
+    if (pagination.has_prev) {
+        paginationHtml += `
+            <li class="page-item">
+                <a class="page-link" href="#" data-page="${pagination.prev_num}">Previous</a>
+            </li>
+        `;
+    } else {
+        paginationHtml += `
+            <li class="page-item disabled">
+                <span class="page-link">Previous</span>
+            </li>
+        `;
+    }
+    
+    // Page numbers
+    for (let i = 1; i <= Math.min(5, pagination.pages); i++) {
+        if (i === pagination.page) {
+            paginationHtml += `
+                <li class="page-item active">
+                    <span class="page-link">${i}</span>
+                </li>
+            `;
+        } else {
+            paginationHtml += `
+                <li class="page-item">
+                    <a class="page-link" href="#" data-page="${i}">${i}</a>
+                </li>
+            `;
+        }
+    }
+    
+    // Next button
+    if (pagination.has_next) {
+        paginationHtml += `
+            <li class="page-item">
+                <a class="page-link" href="#" data-page="${pagination.next_num}">Next</a>
+            </li>
+        `;
+    } else {
+        paginationHtml += `
+            <li class="page-item disabled">
+                <span class="page-link">Next</span>
+            </li>
+        `;
+    }
+    
+    paginationElement.innerHTML = paginationHtml;
+    
+    // Re-attach pagination event listeners
+    attachPaginationListeners();
+}
+
+// Function to attach pagination event listeners
+function attachPaginationListeners() {
+    const paginationElement = document.getElementById('ordersPagination');
+    if (paginationElement) {
+        paginationElement.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A' && e.target.dataset.page) {
+                e.preventDefault();
+                loadOrders(parseInt(e.target.dataset.page));
+            }
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Socket.IO for real-time updates
+    const socket = io();
+    
+    // Join branch room for real-time updates
+    socket.emit('join', {room: 'branch_{{ current_user.branch_id }}'});
+    
+    // Listen for new order events
+    socket.on('new_order', function(data) {
+        console.log('New order event received:', data);
+        
+        // Check if this affects our branch
+        if (data.branch_id === {{ current_user.branch_id }}) {
+            // Show notification for new order
+            showNotification(`New order #${data.order_number} from ${data.creator_name}`, 'info');
+            
+            // Reload orders to show the new order
+            loadOrders(1);
+        }
+    });
+    
+    // Listen for order paid events
+    socket.on('order_paid', function(data) {
+        console.log('Order paid event received:', data);
+        
+        // Check if this affects our branch
+        if (data.branch_id === {{ current_user.branch_id }}) {
+            // Show notification
+            showNotification(`Order for Table ${data.table_number} has been paid`, 'success');
+            
+            // Reload orders to show updated status
+            loadOrders(1);
+        }
+    });
+    // Handle form submission with AJAX
+    document.getElementById('ordersFilterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        loadOrders(1);
+    });
+    
+    // Clear filters
+    document.getElementById('clearFilters').addEventListener('click', function() {
+        document.getElementById('ordersFilterForm').reset();
+        loadOrders(1);
+    });
+    
+    // Handle pagination clicks
+    document.getElementById('ordersPagination').addEventListener('click', function(e) {
+        if (e.target.tagName === 'A' && e.target.dataset.page) {
+            e.preventDefault();
+            loadOrders(parseInt(e.target.dataset.page));
+        }
+    });
+    
+    // View invoice modal
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.view-invoice-modal')) {
+            const button = e.target.closest('.view-invoice-modal');
+            const orderId = button.getAttribute('data-order-id');
+            showInvoiceModal(orderId);
+        }
+        
+        // Mark order as paid
+        if (e.target.closest('.mark-paid-btn')) {
+            const button = e.target.closest('.mark-paid-btn');
+            const orderId = button.getAttribute('data-order-id');
+            markOrderAsPaid(orderId, button);
+        }
+        
+        // Edit order button
+        if (e.target.closest('.edit-order-btn')) {
+            const button = e.target.closest('.edit-order-btn');
+            const orderId = button.getAttribute('data-order-id');
+            showAdminPinEditModal(orderId);
+        }
+    });
+    
+    // Print invoice functionality
+    document.getElementById('printInvoiceBtn').addEventListener('click', function() {
+        const printContent = document.getElementById('invoiceContent').innerHTML;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Invoice</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    .invoice-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+                    .invoice-items table { width: 100%; border-collapse: collapse; }
+                    .invoice-items th, .invoice-items td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
+                    .invoice-items th { background-color: #f5f5f5; }
+                    .text-right { text-align: right; }
+                    .fw-bold { font-weight: bold; }
+                    .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+                    .bg-primary { background-color: #0d6efd; color: white; }
+                    .bg-warning { background-color: #ffc107; color: black; }
+                    .bg-info { background-color: #0dcaf0; color: black; }
+                    .bg-success { background-color: #198754; color: white; }
+                    .bg-secondary { background-color: #6c757d; color: white; }
+                    .mt-3 { margin-top: 1rem; }
+                    .mb-3 { margin-bottom: 1rem; }
+                    @media print {
+                        body { margin: 0; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                ${printContent}
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+        printWindow.close();
+    });
+    
+    // Status update functionality removed
+    
+    // Show/hide delivery company filter based on service type
+    document.getElementById('serviceTypeFilter').addEventListener('change', function() {
+        const deliveryDiv = document.getElementById('deliveryCompanyDiv');
+        if (this.value === 'delivery') {
+            deliveryDiv.style.display = 'block';
+        } else {
+            deliveryDiv.style.display = 'none';
+            document.getElementById('deliveryCompanyFilter').value = '';
+        }
+    });
+    
+    // Initialize delivery company visibility on page load
+    if (document.getElementById('serviceTypeFilter').value === 'delivery') {
+        document.getElementById('deliveryCompanyDiv').style.display = 'block';
+    }
+    
+    // Load delivery companies for filter
+    loadDeliveryCompaniesForFilter();
+    
+    function loadDeliveryCompaniesForFilter() {
+        fetch('/pos/get_delivery_companies')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const select = document.getElementById('deliveryCompanyFilter');
+                    const currentValue = '{{ filters.delivery_company }}';
+                    
+                    // Clear existing options except "All Companies"
+                    select.innerHTML = '<option value="">All Companies</option>';
+                    
+                    // Add delivery company options
+                    data.companies.forEach(company => {
+                        const option = document.createElement('option');
+                        option.value = company.value;
+                        option.textContent = company.name;
+                        if (company.value === currentValue) {
+                            option.selected = true;
+                        }
+                        select.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading delivery companies:', error);
+            });
+    }
+
+    // Load orders with AJAX
+    function loadOrders(page = 1) {
+        const formData = new FormData(document.getElementById('ordersFilterForm'));
+        const params = new URLSearchParams();
+        for (const [key, value] of formData) {
+            if (value) {
+                params.append(key, value);
+            }
+        }
+        params.append('page', page);
+        params.append('per_page', 10);
+        
+        fetch(`{{ url_for('pos.orders') }}?${params.toString()}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update table body
+            const tableBody = document.getElementById('ordersTableBody');
+            tableBody.innerHTML = '';
+            
+            data.orders.forEach(order => {
+                const row = document.createElement('tr');
+                row.dataset.orderId = order.id;
+                
+                // Format service type badge
+                let serviceBadge = '<span class="badge bg-secondary">N/A</span>';
+                if (order.service_type) {
+                    switch(order.service_type) {
+                        case 'on_table':
+                            serviceBadge = '<span class="badge bg-primary">On Table</span>';
+                            break;
+                        case 'take_away':
+                            serviceBadge = '<span class="badge bg-warning">Take Away</span>';
+                            break;
+                        case 'delivery':
+                            serviceBadge = '<span class="badge bg-info">Delivery</span>';
+                            if (order.delivery_company) {
+                                serviceBadge += `<br><small class="text-muted">${order.delivery_company}</small>`;
+                            }
+                            break;
+                        case 'card':
+                            serviceBadge = '<span class="badge bg-success">Card Payment</span>';
+                            break;
+                        default:
+                            serviceBadge = `<span class="badge bg-secondary">${order.service_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>`;
+                    }
+                }
+                
+                // Format creator information
+                let creatorBadge = '<span class="text-muted">Unknown</span>';
+                if (order.creator_name) {
+                    let icon = '<i class="bi bi-person text-secondary me-1"></i>';
+                    let badgeClass = 'bg-secondary';
+                    
+                    if (order.creator_role === 'waiter') {
+                        icon = '<i class="bi bi-person-badge text-warning me-1" title="Waiter"></i>';
+                        badgeClass = 'bg-warning text-dark';
+                    } else if (order.creator_role === 'cashier') {
+                        icon = '<i class="bi bi-cash-register text-success me-1" title="Cashier"></i>';
+                        badgeClass = 'bg-success';
+                    }
+                    
+                    creatorBadge = `
+                        <div class="d-flex align-items-center">
+                            ${icon}
+                            <span class="badge ${badgeClass}">${order.creator_name}</span>
+                        </div>
+                        <small class="text-muted">${order.creator_role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</small>
+                    `;
+                }
+                
+                // Format status badge
+                let statusBadge = '<span class="badge bg-secondary">Unknown</span>';
+                if (order.status) {
+                    switch(order.status) {
+                        case 'paid':
+                            statusBadge = '<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Paid</span>';
+                            if (order.paid_at) {
+                                statusBadge += `<br><small class="text-muted">${new Date(order.paid_at).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}</small>`;
+                            }
+                            break;
+                        case 'pending':
+                            statusBadge = '<span class="badge bg-warning"><i class="bi bi-clock me-1"></i>Pending</span>';
+                            break;
+                        case 'cancelled':
+                            statusBadge = '<span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Cancelled</span>';
+                            break;
+                    }
+                }
+                
+                // Build action buttons
+                let actionButtons = `
+                    <button class="btn btn-sm btn-outline-primary view-invoice-modal" data-order-id="${order.id}">
+                        <i class="bi bi-receipt"></i> Invoice
+                    </button>
+                `;
+                
+                // Add edit button for cashiers
+                if (order.can_edit) {
+                    actionButtons += `
+                        <button class="btn btn-sm btn-warning edit-order-btn" data-order-id="${order.id}" title="Edit Order (Admin PIN Required)">
+                            <i class="bi bi-pencil-square"></i> Edit
+                        </button>
+                    `;
+                }
+                
+                if (order.can_mark_paid) {
+                    actionButtons += `
+                        <button class="btn btn-sm btn-success mark-paid-btn" data-order-id="${order.id}" title="Mark as Paid">
+                            <i class="bi bi-check-circle"></i> Mark Paid
+                        </button>
+                    `;
+                }
+                
+                // Format created_at with edit status
+                let createdAtDisplay = order.created_at;
+                if (order.is_edited && order.edit_count > 0) {
+                    createdAtDisplay += `<br><span class="badge bg-warning text-dark">
+                        <i class="bi bi-pencil-square me-1"></i>Edited ${order.edit_count}x
+                    </span>`;
+                    if (order.last_edited_at) {
+                        createdAtDisplay += `<br><small class="text-muted">Last: ${order.last_edited_at}</small>`;
+                    }
+                }
+                
+                row.innerHTML = `
+                    <td>${order.order_number}</td>
+                    <td>${order.table_number}</td>
+                    <td><span class="badge bg-info">${order.regular_items_count || 0}</span></td>
+                    <td>${order.total_amount.toFixed(2)}</td>
+                    <td>${serviceBadge}</td>
+                    <td>${creatorBadge}</td>
+                    <td>${statusBadge}</td>
+                    <td>${createdAtDisplay}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            ${actionButtons}
+                        </div>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Update pagination
+            updatePagination(data.pagination);
+        })
+        .catch(error => {
+            console.error('Error loading orders:', error);
+        });
+    }
+    
+    // Update pagination controls
+    function updatePagination(pagination) {
+        const paginationElement = document.getElementById('ordersPagination');
+        let paginationHtml = '<ul class="pagination justify-content-center">';
+        
+        // Previous button
+        if (pagination.has_prev) {
+            paginationHtml += `
+                <li class="page-item">
+                    <a class="page-link" href="#" data-page="${pagination.prev_num}">Previous</a>
+                </li>
+            `;
+        } else {
+            paginationHtml += `
+                <li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                </li>
+            `;
+        }
+        
+        // Page numbers
+        // Simplified pagination for demo - in a real app you'd want more sophisticated pagination
+        for (let i = 1; i <= Math.min(5, pagination.pages); i++) {
+            if (i === pagination.page) {
+                paginationHtml += `
+                    <li class="page-item active">
+                        <span class="page-link">${i}</span>
+                    </li>
+                `;
+            } else {
+                paginationHtml += `
+                    <li class="page-item">
+                        <a class="page-link" href="#" data-page="${i}">${i}</a>
+                    </li>
+                `;
+            }
+        }
+        
+        // Next button
+        if (pagination.has_next) {
+            paginationHtml += `
+                <li class="page-item">
+                    <a class="page-link" href="#" data-page="${pagination.next_num}">Next</a>
+                </li>
+            `;
+        } else {
+            paginationHtml += `
+                <li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                </li>
+            `;
+        }
+        
+        paginationHtml += '</ul>';
+        paginationElement.innerHTML = paginationHtml;
+        
+        // Reattach event listeners
+        paginationElement.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A' && e.target.dataset.page) {
+                e.preventDefault();
+                loadOrders(parseInt(e.target.dataset.page));
+            }
+        });
+    }
+    
+    // SocketIO status update functionality removed
+    
+    function showNotification(message) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-info alert-dismissible fade show position-fixed';
+        notification.style = 'top: 20px; right: 20px; z-index: 9999;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+    }
+});
+
+function showInvoiceModal(orderId) {
+    const modal = new bootstrap.Modal(document.getElementById('invoiceModal'));
+    const modalContent = document.getElementById('invoiceContent');
+    
+    // Show loading
+    modalContent.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading invoice...</p>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Fetch order details
+    fetch(`/pos/get_order_details/${orderId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderInvoice(data.order);  // Pass data.order instead of data
+            } else {
+                modalContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Error loading invoice: ${data.message}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            modalContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Error loading invoice. Please try again.
+                </div>
+            `;
+        });
+}
+
+function renderInvoice(orderData) {
+    // Format service type
+    let serviceInfo = '';
+    if (orderData.service_type) {
+        switch(orderData.service_type) {
+            case 'on_table':
+                serviceInfo = '<span class="badge bg-primary">On Table</span>';
+                break;
+            case 'take_away':
+                serviceInfo = '<span class="badge bg-warning">Take Away</span>';
+                break;
+            case 'delivery':
+                serviceInfo = '<span class="badge bg-info">Delivery</span>';
+                if (orderData.delivery_company) {
+                    serviceInfo += `<br><small class="text-muted">${orderData.delivery_company}</small>`;
+                }
+                break;
+            case 'card':
+                serviceInfo = '<span class="badge bg-success">Card Payment</span>';
+                break;
+            default:
+                serviceInfo = `<span class="badge bg-secondary">${orderData.service_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>`;
+        }
+    } else {
+        serviceInfo = '<span class="badge bg-secondary">N/A</span>';
+    }
+    
+    // Count regular items (excluding special items)
+    const regularItemsCount = orderData.items.filter(item => !item.menu_item_name.includes('طلبات خاصة')).length;
+    
+    // Format service type for prominent display
+    let serviceDisplay = 'N/A';
+    if (orderData.service_type) {
+        switch(orderData.service_type) {
+            case 'on_table':
+                serviceDisplay = '🍽️ ON TABLE';
+                break;
+            case 'take_away':
+                serviceDisplay = '📦 TAKE AWAY';
+                break;
+            case 'delivery':
+                serviceDisplay = '🚚 DELIVERY';
+                break;
+            case 'card':
+                serviceDisplay = '💳 CARD PAYMENT';
+                break;
+            default:
+                serviceDisplay = orderData.service_type.replace('_', ' ').toUpperCase();
+        }
+    }
+    
+    const invoiceContent = `
+        <div class="invoice-container" style="font-family: 'Courier New', monospace; max-width: 80mm;">
+            <div class="invoice-header" style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;">
+                <h3>🍽️ Restaurant POS</h3>
+                <p><strong>Order #${orderData.order_number}</strong>${orderData.order_counter ? ` | Count #${orderData.order_counter}` : ''}</p>
+                <p>${new Date(orderData.created_at).toLocaleString()}</p>
+                ${orderData.table_number ? `<p><strong>Table: ${orderData.table_number}</strong></p>` : ''}
+                ${orderData.cashier_name ? `<p><strong>Cashier:</strong> ${orderData.cashier_name}</p>` : ''}
+            </div>
+            
+            <!-- Prominent Service Type Display -->
+            <div style="background: #000; color: #fff; padding: 8px; margin: 10px 0; text-align: center; font-weight: bold; font-size: 16px; border: 2px solid #000;">
+                ${serviceDisplay}
+            </div>
+            
+            <!-- Delivery Company Info -->
+            ${orderData.service_type === 'delivery' && orderData.delivery_company ? 
+                `<div style="background: #f0f0f0; padding: 5px; margin: 5px 0; text-align: center; font-weight: bold; border: 1px solid #000;">
+                    📱 ${orderData.delivery_company}
+                </div>` : ''}
+            
+            <!-- Item Count -->
+            <div style="background: #e0e0e0; padding: 5px; margin: 5px 0; text-align: center; font-weight: bold; border: 1px solid #000;">
+                📋 ${regularItemsCount} REGULAR ITEMS
+            </div>
+            
+            <div class="invoice-items mt-3">
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                        <tr>
+                            <th style="border-bottom: 1px solid #000; padding: 3px 2px; background: #f0f0f0; font-weight: bold;">Item</th>
+                            <th style="border-bottom: 1px solid #000; padding: 3px 2px; background: #f0f0f0; font-weight: bold;">Qty</th>
+                            <th style="border-bottom: 1px solid #000; padding: 3px 2px; background: #f0f0f0; font-weight: bold; text-align: right;">Price</th>
+                            <th style="border-bottom: 1px solid #000; padding: 3px 2px; background: #f0f0f0; font-weight: bold; text-align: right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${orderData.items.map(item => `
+                            <tr>
+                                <td style="border-bottom: 1px solid #000; padding: 3px 2px; ${item.is_deleted ? 'text-decoration: line-through; color: #666; background-color: #ffebee; border-left: 4px solid #f44336;' : ''} ${item.is_new ? 'background-color: #e8f5e8; border-left: 4px solid #4caf50; font-weight: bold;' : ''}">
+                                    ${item.is_deleted ? '🚫 ' : ''}${item.is_new ? '🆕 ' : ''}${item.menu_item_name}
+                                    ${item.special_requests ? `<br><small style="color: #1976d2; font-weight: bold; ${item.is_deleted ? 'text-decoration: line-through;' : ''}"><i>⭐ ${item.special_requests}</i></small>` : ''}
+                                </td>
+                                <td style="border-bottom: 1px solid #000; padding: 3px 2px; ${item.is_deleted ? 'text-decoration: line-through; color: #666; background-color: #ffebee; border-left: 4px solid #f44336;' : ''} ${item.is_new ? 'background-color: #e8f5e8; border-left: 4px solid #4caf50; font-weight: bold;' : ''}">${item.quantity}</td>
+                                <td style="border-bottom: 1px solid #000; padding: 3px 2px; text-align: right; ${item.is_deleted ? 'text-decoration: line-through; color: #666; background-color: #ffebee; border-left: 4px solid #f44336;' : ''} ${item.is_new ? 'background-color: #e8f5e8; border-left: 4px solid #4caf50; font-weight: bold;' : ''}">${item.unit_price.toFixed(2)} QAR</td>
+                                <td style="border-bottom: 1px solid #000; padding: 3px 2px; text-align: right; ${item.is_deleted ? 'text-decoration: line-through; color: #666; background-color: #ffebee; border-left: 4px solid #f44336;' : ''} ${item.is_new ? 'background-color: #e8f5e8; border-left: 4px solid #4caf50; font-weight: bold;' : ''}">${item.total_price.toFixed(2)} QAR</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            
+            ${orderData.edit_count && orderData.edit_count > 0 ? `
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; margin: 10px 0; text-align: center;">
+                    <strong>📝 ORDER EDITED ${orderData.edit_count} TIME(S)</strong><br>
+                    <small>Last edited: ${orderData.last_edited_at ? new Date(orderData.last_edited_at).toLocaleString() : 'Unknown'}</small>
+                </div>
+            ` : ''}
+            
+            <div class="mt-3" style="margin-top: 10px;">
+                <table style="width: 100%; margin-top: 10px;">
+                    <tr>
+                        <td style="font-weight: bold;">Total:</td>
+                        <td style="text-align: right; font-weight: bold;">${orderData.total_amount.toFixed(2)} QAR</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <p><strong>Thank you for your business!</strong></p>
+                <p>Visit us again soon.</p>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('invoiceContent').innerHTML = invoiceContent;
+}
+
+function viewInvoice(orderId) {
+    fetch(`/pos/get_order_details/${orderId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Create invoice HTML
+                let itemsHtml = '';
+                data.order.items.forEach(item => {
+                    // Build modifiers display
+                    let modifiersHtml = '';
+                    if (item.special_requests && item.special_requests.trim()) {
+                        modifiersHtml = `<br><small class="text-muted">+ ${item.special_requests}</small>`;
+                    }
+                    
+                    itemsHtml += `
+                        <tr>
+                            <td>${item.menu_item_name}${modifiersHtml}</td>
+                            <td>${item.quantity}</td>
+                            <td>${parseFloat(item.unit_price).toFixed(2)} QAR</td>
+                            <td>${parseFloat(item.total_price).toFixed(2)} QAR</td>
+                        </tr>
+                    `;
+                });
+                
+                const invoiceHtml = `
+                    <div class="container invoice-container">
+                        <div class="invoice-header text-center mb-4">
+                            <h3>Restaurant POS</h3>
+                            <h4>Invoice</h4>
+                            <p>Order #${data.order.order_number}${data.order.order_counter ? ` | Count #${data.order.order_counter}` : ''}</p>
+                            <p>${new Date(data.order.created_at).toLocaleString()}</p>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <p><strong>Cashier:</strong> ${data.order.cashier_name || 'N/A'}</p>
+                            <p><strong>Table:</strong> ${data.order.table_number || 'N/A'}</p>
+                        </div>
+                        
+                        <div class="table-responsive mb-3">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Qty</th>
+                                        <th>Price</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${itemsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="text-end mb-4">
+                            <h4>Total: ${parseFloat(data.order.total_amount).toFixed(2)} QAR</h4>
+                        </div>
+                        
+                        <div class="text-center">
+                            <p class="small">Thank you for your business!</p>
+                        </div>
+                    </div>
+                `;
+                
+                // Open invoice in new window for printing
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Invoice - ${data.order_number}</title>
+                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                        <style>
+                            @media print {
+                                body {
+                                    font-size: 12px;
+                                    padding: 0;
+                                    margin: 0;
+                                }
+                                
+                                .invoice-container {
+                                    max-width: 80mm;
+                                    margin: 0 auto;
+                                }
+                                
+                                .btn, .no-print {
+                                    display: none !important;
+                                }
+                            }
+                            
+                            body {
+                                font-family: Arial, sans-serif;
+                            }
+                            
+                            .invoice-header {
+                                text-align: center;
+                                border-bottom: 2px solid #000;
+                                padding-bottom: 10px;
+                                margin-bottom: 15px;
+                            }
+                            
+                            .text-right {
+                                text-align: right;
+                            }
+                            
+                            .text-center {
+                                text-align: center;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="container invoice-container">
+                            ${invoiceHtml}
+                            <div class="text-center no-print mt-3">
+                                <button class="btn btn-primary" onclick="window.print()">
+                                    <i class="bi bi-printer"></i> Print Invoice
+                                </button>
+                                <button class="btn btn-secondary" onclick="window.close()">
+                                    <i class="bi bi-x-circle"></i> Close
+                                </button>
+                            </div>
+                        </div>
+                        <script>
+                            // Auto-print when page loads (for POS systems)
+                            window.onload = function() {
+                                window.print();
+                            }
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while loading the invoice');
+        });
+}
+
+// Mark order as paid function
+function markOrderAsPaid(orderId, button) {
+    // Disable button and show loading
+    const originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+    
+    fetch(`/pos/mark_order_paid/${orderId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success notification
+            showNotification(`Order marked as paid successfully! Payment time: ${data.paid_at}`, 'success');
+            
+            // Reload orders to show updated status
+            loadOrders(1);
+            
+            // Emit socket event for real-time updates (if needed)
+            if (typeof socket !== 'undefined') {
+                socket.emit('order_paid', {
+                    order_id: orderId,
+                    paid_at: data.paid_at
+                });
+            }
+        } else {
+            // Show error notification
+            showNotification(`Error: ${data.message}`, 'error');
+            
+            // Re-enable button
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error marking order as paid:', error);
+        showNotification('An error occurred while marking the order as paid', 'error');
+        
+        // Re-enable button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
+}
+
+// Enhanced notification function
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    let alertClass = 'alert-info';
+    let icon = 'bi-info-circle';
+    
+    switch(type) {
+        case 'success':
+            alertClass = 'alert-success';
+            icon = 'bi-check-circle';
+            break;
+        case 'error':
+            alertClass = 'alert-danger';
+            icon = 'bi-exclamation-triangle';
+            break;
+        case 'warning':
+            alertClass = 'alert-warning';
+            icon = 'bi-exclamation-triangle';
+            break;
+    }
+    
+    notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    notification.style = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        <i class="bi ${icon} me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
+// Order status update function removed
+
+// ===== ORDER EDITING FUNCTIONALITY =====
+    let currentEditOrderId = null;
+    let currentEditOrderData = null;
+    let editOrderItems = [];
+    let originalOrderTotal = 0;
+
+    // Show admin PIN modal for order editing
+    function showAdminPinEditModal(orderId) {
+        currentEditOrderId = orderId;
+        const modal = new bootstrap.Modal(document.getElementById('adminPinEditModal'));
+        
+        // Clear previous input and results
+        document.getElementById('adminPinEditInput').value = '';
+        document.getElementById('pinEditVerificationResult').innerHTML = '';
+        
+        modal.show();
+    }
+
+    // Admin PIN verification for order editing
+    document.getElementById('verifyPinEditBtn').addEventListener('click', function() {
+        const pinCode = document.getElementById('adminPinEditInput').value.trim();
+        
+        if (!pinCode || pinCode.length !== 4) {
+            showPinEditResult('Please enter a 4-digit PIN code', 'error');
+            return;
+        }
+
+        // Show loading
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Verifying...';
+        this.disabled = true;
+
+        // Verify PIN
+        fetch('/pos/verify_admin_pin_for_editing', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ pin_code: pinCode })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showPinEditResult('PIN verified successfully! Opening order editor...', 'success');
+                
+                // Hide PIN modal and show order edit modal
+                setTimeout(() => {
+                    const pinModal = bootstrap.Modal.getInstance(document.getElementById('adminPinEditModal'));
+                    pinModal.hide();
+                    loadOrderForEditing(currentEditOrderId);
+                }, 1500);
+            } else {
+                showPinEditResult(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error verifying PIN:', error);
+            showPinEditResult('An error occurred during verification', 'error');
+        })
+        .finally(() => {
+            this.innerHTML = originalText;
+            this.disabled = false;
+        });
+    });
+
+    function showPinEditResult(message, type) {
+        const resultDiv = document.getElementById('pinEditVerificationResult');
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const iconClass = type === 'success' ? 'bi-check-circle' : 'bi-x-circle';
+        
+        resultDiv.innerHTML = `
+            <div class="alert ${alertClass}">
+                <i class="bi ${iconClass} me-2"></i>${message}
+            </div>
+        `;
+    }
+
+    // Load order data for editing
+    function loadOrderForEditing(orderId) {
+        fetch(`/pos/get_order_for_editing/${orderId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentEditOrderData = data.order;
+                    editOrderItems = [...data.order.items]; // Create a copy
+                    originalOrderTotal = data.order.total_amount;
+                    
+                    // Update modal header
+                    document.getElementById('editOrderNumber').textContent = `#${data.order.order_number}`;
+                    document.getElementById('editTimestamp').textContent = new Date().toLocaleString();
+                    
+                    // Load menu items and show edit modal
+                    loadMenuForEditing();
+                    renderEditOrderItems();
+                    updateEditOrderSummary();
+                    
+                    const editModal = new bootstrap.Modal(document.getElementById('orderEditModal'));
+                    editModal.show();
+                } else {
+                    showNotification('Error loading order: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading order:', error);
+                showNotification('Error loading order for editing', 'error');
+            });
+    }
+
+    // Load menu items for editing
+    function loadMenuForEditing() {
+        fetch('/pos/get_menu_items_for_editing')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderMenuForEditing(data.categories, data.items, data.special_items);
+                } else {
+                    console.error('Error loading menu items:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading menu items:', error);
+            });
+    }
+
+    // Render menu items in edit modal
+    function renderMenuForEditing(categories, items, specialItems) {
+        const container = document.getElementById('editMenuContainer');
+        
+        let menuHtml = `
+            <div id="regularItemsSection">
+                <ul class="nav nav-tabs mb-3" id="editCategoryTabs" role="tablist">
+        `;
+        
+        // Category tabs
+        categories.forEach((category, index) => {
+            menuHtml += `
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link ${index === 0 ? 'active' : ''}" 
+                            id="edit-cat-${category.id}-tab" 
+                            data-bs-toggle="tab" 
+                            data-bs-target="#edit-cat-${category.id}" 
+                            type="button" 
+                            role="tab">
+                        ${category.name}
+                    </button>
+                </li>
+            `;
+        });
+        
+        menuHtml += `
+                </ul>
+                <div class="tab-content" id="editCategoryTabsContent">
+        `;
+        
+        // Category content
+        categories.forEach((category, index) => {
+            const categoryItems = items.filter(item => item.category_id === category.id);
+            
+            menuHtml += `
+                <div class="tab-pane fade ${index === 0 ? 'show active' : ''}" 
+                     id="edit-cat-${category.id}" 
+                     role="tabpanel">
+                    <div class="row g-2">
+            `;
+            
+            categoryItems.forEach(item => {
+                menuHtml += `
+                    <div class="col-md-3 col-sm-4 col-6">
+                        <div class="card menu-item-card" 
+                             data-item-id="${item.id}" 
+                             data-item-name="${item.name}" 
+                             data-item-price="${item.price}"
+                             style="cursor: pointer; transition: all 0.3s ease;">
+                            <div class="card-body p-2 text-center">
+                                <h6 class="card-title mb-1" style="font-size: 0.9rem;">${item.name}</h6>
+                                <p class="card-text text-muted mb-0" style="font-size: 0.8rem;">${item.price.toFixed(2)} QAR</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            menuHtml += `
+                </div>
+            </div>
+        `;
+        });
+        
+        menuHtml += `
+                </div>
+            </div>
+            
+            <div id="specialItemsSection">
+                <hr class="my-3">
+                <h6 class="mb-3"><i class="bi bi-stars text-warning me-2"></i>Special Items (طلبات خاصة)</h6>
+                <div class="row g-2">
+        `;
+        
+        // Special items
+        specialItems.forEach(item => {
+            menuHtml += `
+                <div class="col-md-3 col-sm-4 col-6">
+                    <div class="card menu-item-card special-item" 
+                         data-item-id="${item.id}" 
+                         data-item-name="${item.name}" 
+                         data-item-price="${item.price}"
+                         style="cursor: pointer; transition: all 0.3s ease; border-color: #ffc107;">
+                        <div class="card-body p-2 text-center">
+                            <h6 class="card-title mb-1" style="font-size: 0.9rem;">${item.name}</h6>
+                            <p class="card-text text-muted mb-0" style="font-size: 0.8rem;">${item.price.toFixed(2)} QAR</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        menuHtml += `
+            </div>
+        </div>
+    `;
+        
+        container.innerHTML = menuHtml;
+        
+        // Add click handlers for menu items
+        container.addEventListener('click', function(e) {
+            const menuItem = e.target.closest('.menu-item-card');
+            if (menuItem) {
+                addItemToEditOrder(menuItem);
+            }
+        });
+    }
+
+
+    let selectedEditOrderItemIndex = null;
+    let lastAddedRegularItemIndex = null;
+
+    // Add item to edit order
+    function addItemToEditOrder(menuItemElement) {
+        const itemId = menuItemElement.dataset.itemId;
+        const itemName = menuItemElement.dataset.itemName;
+        const itemPrice = parseFloat(menuItemElement.dataset.itemPrice);
+        const isSpecialItem = menuItemElement.classList.contains('special-item');
+        
+        // Handle special items differently
+        if (isSpecialItem) {
+            addSpecialItemToRegularItem(itemId, itemName, itemPrice);
+            return;
+        }
+        
+        // Check if it's a custom price item
+        if (itemName.toLowerCase().includes('falafel hab') || itemName.toLowerCase().includes('special order')) {
+            showCustomPriceModal(itemId, itemName);
+            return;
+        }
+        
+        // Check if regular item already exists in order
+        const existingItem = editOrderItems.find(item => 
+            item.menu_item_id == itemId && !item.is_deleted
+        );
+        
+        if (existingItem) {
+            // Increase quantity
+            existingItem.quantity += 1;
+            existingItem.total_price = existingItem.quantity * existingItem.unit_price;
+            existingItem.is_new = true; // Mark as newly added
+            
+            // Track this as the last selected regular item
+            const existingItemIndex = editOrderItems.indexOf(existingItem);
+            lastAddedRegularItemIndex = existingItemIndex;
+            selectedEditOrderItemIndex = existingItemIndex;
+        } else {
+            // Add new regular item
+            editOrderItems.push({
+                id: Date.now(), // Temporary ID for new items
+                menu_item_id: itemId,
+                menu_item_name: itemName,
+                quantity: 1,
+                unit_price: itemPrice,
+                total_price: itemPrice,
+                special_requests: '',
+                is_new: true,
+                type: 'regular'
+            });
+            
+            // Track this as the last selected regular item
+            lastAddedRegularItemIndex = editOrderItems.length - 1;
+            selectedEditOrderItemIndex = editOrderItems.length - 1;
+        }
+        
+        renderEditOrderItems();
+        updateEditOrderSummary();
+        
+        // Visual feedback
+        menuItemElement.style.backgroundColor = '#d4edda';
+        setTimeout(() => {
+            menuItemElement.style.backgroundColor = '';
+        }, 300);
+    }
+
+    // Add special item as modifier to regular item (same logic as main POS)
+    function addSpecialItemToRegularItem(itemId, itemName, itemPrice) {
+        // Check if there are any regular items in the order
+        const regularItems = editOrderItems.filter(item => !item.is_deleted && item.type !== 'special');
+        if (regularItems.length === 0) {
+            showNotification('Please add a menu item first before adding special requests.', 'warning');
+            return;
+        }
+
+        let targetItem = null;
+        let targetIndex = -1;
+
+        // Priority 1: If an order item is selected, use that
+        if (selectedEditOrderItemIndex !== null && 
+            selectedEditOrderItemIndex >= 0 && 
+            selectedEditOrderItemIndex < editOrderItems.length &&
+            !editOrderItems[selectedEditOrderItemIndex].is_deleted) {
+            targetItem = editOrderItems[selectedEditOrderItemIndex];
+            targetIndex = selectedEditOrderItemIndex;
+        } 
+        // Priority 2: Use the last added regular item
+        else if (lastAddedRegularItemIndex !== null && 
+                 lastAddedRegularItemIndex >= 0 && 
+                 lastAddedRegularItemIndex < editOrderItems.length &&
+                 !editOrderItems[lastAddedRegularItemIndex].is_deleted) {
+            targetItem = editOrderItems[lastAddedRegularItemIndex];
+            targetIndex = lastAddedRegularItemIndex;
+        } 
+        // Priority 3: Find the last added regular item (most recent)
+        else {
+            for (let i = editOrderItems.length - 1; i >= 0; i--) {
+                if (!editOrderItems[i].is_deleted && editOrderItems[i].type !== 'special') {
+                    targetItem = editOrderItems[i];
+                    targetIndex = i;
+                    lastAddedRegularItemIndex = i;
+                    break;
+                }
+            }
+        }
+
+        if (!targetItem) {
+            showNotification('No regular item found to attach special request.', 'warning');
+            return;
+        }
+
+        // Initialize special_items array if it doesn't exist
+        if (!targetItem.special_items) {
+            targetItem.special_items = [];
+        }
+        
+        // Check if this special item already exists in the array
+        const existingSpecialItem = targetItem.special_items.find(si => si.name === itemName);
+        if (existingSpecialItem) {
+            existingSpecialItem.quantity += 1;
+        } else {
+            targetItem.special_items.push({
+                name: itemName,
+                quantity: 1,
+                price: itemPrice
+            });
+        }
+
+        // Only update special_requests if special_items array is empty (for backward compatibility)
+        // Since we're prioritizing special_items display, we don't need to duplicate in special_requests
+        if (targetItem.special_items.length === 1 && !targetItem.special_requests) {
+            // This is the first special item and no existing special_requests, so we can set it
+            const newRequest = itemName + (itemPrice > 0 ? ` (+${itemPrice.toFixed(2)} QAR)` : '');
+            targetItem.special_requests = newRequest;
+        } else if (targetItem.special_items.length > 1) {
+            // Multiple special items, clear special_requests to avoid duplication
+            targetItem.special_requests = '';
+        }
+
+        // Add the special item price to the regular item's total
+        targetItem.total_price += itemPrice;
+
+        renderEditOrderItems();
+        updateEditOrderSummary();
+
+        // Visual feedback
+        showNotification(`Added "${itemName}" to "${targetItem.menu_item_name}"`, 'success');
+    }
+
+    // Show custom price modal
+    function showCustomPriceModal(itemId, itemName) {
+        document.getElementById('customPriceItemName').textContent = itemName;
+        document.getElementById('customPriceInput').value = '';
+        
+        const modal = new bootstrap.Modal(document.getElementById('customPriceEditModal'));
+        modal.show();
+        
+        // Store current item data
+        modal._currentItemId = itemId;
+        modal._currentItemName = itemName;
+    }
+
+    // Quick price buttons for custom price modal
+    document.querySelectorAll('.quick-price-edit-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('customPriceInput').value = this.dataset.price;
+        });
+    });
+
+    // Confirm custom price
+    document.getElementById('confirmCustomPrice').addEventListener('click', function() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('customPriceEditModal'));
+        const price = parseFloat(document.getElementById('customPriceInput').value);
+        
+        if (!price || price <= 0) {
+            showNotification('Please enter a valid price', 'warning');
+            return;
+        }
+        
+        const itemId = modal._currentItemId;
+        const itemName = modal._currentItemName;
+        
+        // Add item with custom price
+        editOrderItems.push({
+            id: Date.now(),
+            menu_item_id: itemId,
+            menu_item_name: itemName,
+            quantity: 1,
+            unit_price: price,
+            total_price: price,
+            special_requests: '',
+            is_new: true,
+            is_custom_price: true
+        });
+        
+        renderEditOrderItems();
+        updateEditOrderSummary();
+        modal.hide();
+    });
+
+    // Render order items in edit modal
+    function renderEditOrderItems() {
+        const container = document.getElementById('editOrderItemsList');
+        let itemsHtml = '';
+        
+        
+        editOrderItems.forEach((item, index) => {
+            const isDeleted = item.is_deleted || false;
+            const isNew = item.is_new || false;
+            
+            const isSelected = selectedEditOrderItemIndex === index;
+            const selectableClass = !isDeleted ? 'selectable-cart-item' : '';
+            const selectedStyle = isSelected ? 'border: 2px solid #007bff; background-color: #f8f9ff;' : '';
+            itemsHtml += `
+                <div class="card mb-2 order-item-edit ${isDeleted ? 'deleted-item' : ''} ${isNew ? 'new-item' : ''} ${isSelected ? 'selected-item' : ''} ${selectableClass}" 
+                     data-index="${index}" 
+                     style="cursor: pointer; ${selectedStyle} ${isDeleted ? '' : 'transition: all 0.2s ease;'}">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 ${isDeleted ? 'text-decoration-line-through text-muted' : ''}">
+                                    ${item.menu_item_name}
+                                    ${isNew ? '<span class="badge bg-success ms-1">NEW</span>' : ''}
+                                    ${isDeleted ? '<span class="badge bg-danger ms-1">DELETED</span>' : ''}
+                                </h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    ${!isDeleted ? `
+                                        <button class="btn btn-sm btn-outline-secondary decrease-qty" data-index="${index}">-</button>
+                                        <span class="quantity-display">${item.quantity}</span>
+                                        <button class="btn btn-sm btn-outline-secondary increase-qty" data-index="${index}">+</button>
+                                    ` : `<span class="text-muted">Qty: ${item.quantity}</span>`}
+                                    <span class="ms-2 ${isDeleted ? 'text-decoration-line-through text-muted' : ''}">
+                                        ${item.unit_price.toFixed(2)} QAR each
+                                    </span>
+                                </div>
+                                ${item.special_items && item.special_items.length > 0 ? `
+                                    <div class="mt-1">
+                                        <small class="text-info"><i class="bi bi-plus-circle me-1"></i>Special Items:</small>
+                                        <div class="ms-3">
+                                            ${item.special_items.map(specialItem => `
+                                                <small class="text-muted d-block">
+                                                    ${specialItem.quantity > 1 ? `${specialItem.quantity}x ` : ''}${specialItem.name}
+                                                </small>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : (item.special_requests ? `
+                                    <div class="mt-1">
+                                        <small class="text-success"><i class="bi bi-stars me-1"></i>${item.special_requests}</small>
+                                    </div>
+                                ` : '')}
+                                ${!isDeleted ? `
+                                    <div class="mt-1">
+                                        <small class="text-primary fw-bold">${isSelected ? '✓ Selected - Click special item to add' : 'Click here to select for special items'}</small>
+                                    </div>
+                                ` : ''}
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold ${isDeleted ? 'text-decoration-line-through text-muted' : ''}">
+                                    ${item.total_price.toFixed(2)} QAR
+                                </div>
+                                ${!isDeleted ? `
+                                    <button class="btn btn-sm btn-outline-danger delete-item" data-index="${index}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                ` : `
+                                    <button class="btn btn-sm btn-outline-success restore-item" data-index="${index}">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        if (editOrderItems.length === 0) {
+            itemsHtml = '<p class="text-muted text-center">No items in order</p>';
+        }
+        
+        container.innerHTML = itemsHtml;
+        document.getElementById('editItemsCount').textContent = `${editOrderItems.filter(item => !item.is_deleted).length} items`;
+    }
+
+    // Add single event listener for order items (only once)
+    document.getElementById('editOrderItemsList').addEventListener('click', function(e) {
+        const index = parseInt(e.target.closest('[data-index]')?.dataset.index);
+        if (isNaN(index)) return;
+        
+        if (e.target.closest('.increase-qty')) {
+            editOrderItems[index].quantity += 1;
+            editOrderItems[index].total_price = editOrderItems[index].quantity * editOrderItems[index].unit_price;
+            renderEditOrderItems();
+            updateEditOrderSummary();
+        } else if (e.target.closest('.decrease-qty')) {
+            if (editOrderItems[index].quantity > 1) {
+                editOrderItems[index].quantity -= 1;
+                editOrderItems[index].total_price = editOrderItems[index].quantity * editOrderItems[index].unit_price;
+                renderEditOrderItems();
+                updateEditOrderSummary();
+            }
+        } else if (e.target.closest('.delete-item')) {
+            editOrderItems[index].is_deleted = true;
+            renderEditOrderItems();
+            updateEditOrderSummary();
+        } else if (e.target.closest('.restore-item')) {
+            editOrderItems[index].is_deleted = false;
+            renderEditOrderItems();
+            updateEditOrderSummary();
+        } else if (e.target.closest('.order-item-edit') && !e.target.closest('button')) {
+            // Select order item for special item assignment (only if not clicking buttons)
+            selectedEditOrderItemIndex = index;
+            renderEditOrderItems(); // Re-render to show selection
+            showNotification('Item selected. Click a special item to add it to this order.', 'info');
+        }
+    });
+
+    // Update order summary
+    function updateEditOrderSummary() {
+        const activeItems = editOrderItems.filter(item => !item.is_deleted);
+        const currentTotal = activeItems.reduce((sum, item) => sum + item.total_price, 0);
+        const difference = currentTotal - originalOrderTotal;
+        
+        document.getElementById('editOriginalTotal').textContent = `${originalOrderTotal.toFixed(2)} QAR`;
+        document.getElementById('editCurrentTotal').textContent = `${currentTotal.toFixed(2)} QAR`;
+        document.getElementById('editItemsCount').textContent = `${activeItems.length} items`;
+        
+        const differenceElement = document.getElementById('editTotalDifference');
+        if (difference > 0) {
+            differenceElement.textContent = `+${difference.toFixed(2)} QAR`;
+            differenceElement.className = 'text-success';
+        } else if (difference < 0) {
+            differenceElement.textContent = `${difference.toFixed(2)} QAR`;
+            differenceElement.className = 'text-danger';
+        } else {
+            differenceElement.textContent = '0.00 QAR';
+            differenceElement.className = 'text-muted';
+        }
+    }
+
+    // Save order changes
+    document.getElementById('saveOrderChanges').addEventListener('click', function() {
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i class="spinner-border spinner-border-sm me-2"></i>Saving...';
+        this.disabled = true;
+        
+        const orderData = {
+            order_id: currentEditOrderId,
+            items: editOrderItems,
+            original_total: originalOrderTotal
+        };
+        
+        fetch('/pos/save_order_changes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(orderData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Order updated successfully!', 'success');
+                
+                // Close modal and refresh orders
+                const editModal = bootstrap.Modal.getInstance(document.getElementById('orderEditModal'));
+                editModal.hide();
+                loadOrders(1);
+            } else {
+                showNotification('Error saving order: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error saving order:', error);
+            showNotification('Error saving order changes', 'error');
+        })
+        .finally(() => {
+            this.innerHTML = originalText;
+            this.disabled = false;
+        });
+    });
+
+    // CSS for visual indicators
+    const editStyles = document.createElement('style');
+    editStyles.textContent = `
+        .new-item {
+            border-left: 4px solid #28a745 !important;
+            background-color: rgba(40, 167, 69, 0.1);
+        }
+        
+        .deleted-item {
+            border-left: 4px solid #dc3545 !important;
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+        
+        .menu-item-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .selectable-cart-item:hover {
+            background-color: #f8f9fa !important;
+            border-color: #007bff !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .selected-item {
+            border: 2px solid #007bff !important;
+            background-color: #f8f9ff !important;
+            box-shadow: 0 2px 8px rgba(0,123,255,0.2) !important;
+        }
+        
+        .order-item-edit {
+            transition: all 0.3s ease;
+        }
+    `;
+    document.head.appendChild(editStyles);
+
+</script>
+{% endblock %}

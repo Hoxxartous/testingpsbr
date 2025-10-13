@@ -1,0 +1,615 @@
+{% extends "base.html" %}
+
+{% block title %}Branch Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-0">🏢 Branch Management</h1>
+                    <p class="text-muted">Manage all restaurant branches</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('superuser.add_branch') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add New Branch
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Branches Grid -->
+    <div class="row">
+        {% for branch in branches %}
+        <div class="col-lg-4 col-md-6 mb-4" data-branch-id="{{ branch.id }}">
+            <div class="card shadow h-100 {% if not branch.is_active %}border-danger{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">{{ branch.name }}</h6>
+                    <span class="badge {% if branch.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                        {% if branch.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Code:</strong> 
+                        <span class="badge bg-secondary">{{ branch.code }}</span>
+                    </div>
+                    
+                    {% if branch.address %}
+                    <div class="mb-2">
+                        <i class="fas fa-map-marker-alt text-muted"></i>
+                        <small>{{ branch.address }}</small>
+                    </div>
+                    {% endif %}
+                    
+                    {% if branch.phone %}
+                    <div class="mb-2">
+                        <i class="fas fa-phone text-muted"></i>
+                        <small>{{ branch.phone }}</small>
+                    </div>
+                    {% endif %}
+                    
+                    {% if branch.manager_name %}
+                    <div class="mb-2">
+                        <i class="fas fa-user-tie text-muted"></i>
+                        <small>{{ branch.manager_name }}</small>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-2">
+                        <i class="fas fa-calendar text-muted"></i>
+                        <small>Created: {{ branch.created_at | local_datetime_short }}</small>
+                    </div>
+                    
+                    <!-- Branch Statistics -->
+                    <div class="row mt-3">
+                        <div class="col-4 text-center">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Users</div>
+                            <div class="h6 mb-0 font-weight-bold text-gray-800">{{ branch.users.count() }}</div>
+                        </div>
+                        <div class="col-4 text-center">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Tables</div>
+                            <div class="h6 mb-0 font-weight-bold text-gray-800">{{ branch.tables.count() }}</div>
+                        </div>
+                        <div class="col-4 text-center">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Orders</div>
+                            <div class="h6 mb-0 font-weight-bold text-gray-800">{{ branch.orders.count() }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group w-100" role="group">
+                        <a href="{{ url_for('superuser.edit_branch', branch_id=branch.id) }}" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <a href="#" class="btn btn-outline-info btn-sm" 
+                           onclick="viewBranchDetails({{ branch.id }})">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        {% if branch.is_active %}
+                            {% if current_user.branch_id != branch.id %}
+                            <button class="btn btn-outline-danger btn-sm" 
+                                    onclick="deactivateBranch({{ branch.id }}, '{{ branch.name }}')">
+                                <i class="fas fa-ban"></i> Deactivate
+                            </button>
+                            {% else %}
+                            <button class="btn btn-outline-secondary btn-sm" disabled title="Cannot deactivate your own branch">
+                                <i class="fas fa-lock"></i> Protected
+                            </button>
+                            {% endif %}
+                        {% else %}
+                        <button class="btn btn-outline-success btn-sm" 
+                                onclick="reactivateBranch({{ branch.id }}, '{{ branch.name }}')">
+                            <i class="fas fa-check"></i> Reactivate
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% if not branches %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-building fa-3x text-gray-300 mb-3"></i>
+                    <h5 class="text-gray-600">No branches found</h5>
+                    <p class="text-muted">Get started by creating your first branch.</p>
+                    <a href="{{ url_for('superuser.add_branch') }}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create First Branch
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Branch Details Modal -->
+<div class="modal fade" id="branchDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-building"></i> 
+                    <span id="branchDetailsTitle">Branch Details</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="branchDetailsContent">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading branch details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="editBranchBtn" class="btn btn-primary">
+                    <i class="fas fa-edit"></i> Edit Branch
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deactivate Branch Modal -->
+<div class="modal fade" id="deactivateBranchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Deactivate Branch</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to deactivate <strong id="branchNameToDeactivate"></strong>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>Warning:</strong> This will also deactivate all users assigned to this branch.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deactivateBranchForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Deactivate Branch</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reactivate Branch Modal -->
+<div class="modal fade" id="reactivateBranchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reactivate Branch</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to reactivate <strong id="branchNameToReactivate"></strong>?</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Note:</strong> This will reactivate the branch but users will remain inactive until manually reactivated.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="reactivateBranchForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-success">Reactivate Branch</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function deactivateBranch(branchId, branchName) {
+    document.getElementById('branchNameToDeactivate').textContent = branchName;
+    document.getElementById('deactivateBranchForm').onsubmit = function(e) {
+        e.preventDefault();
+        performBranchAction(branchId, 'deactivate', branchName);
+    };
+    new bootstrap.Modal(document.getElementById('deactivateBranchModal')).show();
+}
+
+function reactivateBranch(branchId, branchName) {
+    document.getElementById('branchNameToReactivate').textContent = branchName;
+    document.getElementById('reactivateBranchForm').onsubmit = function(e) {
+        e.preventDefault();
+        performBranchAction(branchId, 'reactivate', branchName);
+    };
+    new bootstrap.Modal(document.getElementById('reactivateBranchModal')).show();
+}
+
+function performBranchAction(branchId, action, branchName) {
+    // Show loading state
+    const modalId = action === 'deactivate' ? 'deactivateBranchModal' : 'reactivateBranchModal';
+    const submitBtn = document.querySelector(`#${modalId} button[type="submit"]`);
+    const originalText = submitBtn.innerHTML;
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+    
+    // Make AJAX request
+    fetch(`/superuser/branches/${branchId}/${action}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Hide modal
+            bootstrap.Modal.getInstance(document.getElementById(modalId)).hide();
+            
+            // Show success message
+            showNotification(data.message, 'success');
+            
+            // Update the branch card UI without page reload
+            updateBranchCard(branchId, action === 'reactivate');
+            
+        } else {
+            showNotification(data.message || 'An error occurred', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred. Please try again.', 'error');
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    });
+}
+
+function updateBranchCard(branchId, isActive) {
+    const branchCard = document.querySelector(`[data-branch-id="${branchId}"]`);
+    if (!branchCard) return;
+    
+    // Update status badge
+    const statusBadge = branchCard.querySelector('.badge');
+    if (statusBadge) {
+        if (isActive) {
+            statusBadge.className = 'badge bg-success';
+            statusBadge.textContent = 'Active';
+        } else {
+            statusBadge.className = 'badge bg-danger';
+            statusBadge.textContent = 'Inactive';
+        }
+    }
+    
+    // Update card border
+    const card = branchCard.querySelector('.card');
+    if (card) {
+        if (isActive) {
+            card.classList.remove('border-danger');
+        } else {
+            card.classList.add('border-danger');
+        }
+    }
+    
+    // Update action buttons
+    const buttonGroup = branchCard.querySelector('.btn-group');
+    if (buttonGroup) {
+        const actionButton = buttonGroup.querySelector('.btn-outline-danger, .btn-outline-success');
+        if (actionButton) {
+            if (isActive) {
+                // Show deactivate button
+                actionButton.className = 'btn btn-outline-danger btn-sm';
+                actionButton.innerHTML = '<i class="fas fa-ban"></i> Deactivate';
+                actionButton.onclick = function() {
+                    const branchName = branchCard.querySelector('.font-weight-bold').textContent;
+                    deactivateBranch(branchId, branchName);
+                };
+            } else {
+                // Show reactivate button
+                actionButton.className = 'btn btn-outline-success btn-sm';
+                actionButton.innerHTML = '<i class="fas fa-check"></i> Reactivate';
+                actionButton.onclick = function() {
+                    const branchName = branchCard.querySelector('.font-weight-bold').textContent;
+                    reactivateBranch(branchId, branchName);
+                };
+            }
+        }
+    }
+}
+
+function showNotification(message, type) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+function viewBranchDetails(branchId) {
+    // Show modal with loading state
+    const modal = new bootstrap.Modal(document.getElementById('branchDetailsModal'));
+    const modalTitle = document.getElementById('branchDetailsTitle');
+    const modalContent = document.getElementById('branchDetailsContent');
+    const editBtn = document.getElementById('editBranchBtn');
+    
+    // Reset modal content
+    modalTitle.textContent = 'Branch Details';
+    modalContent.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading branch details...</p>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Fetch branch details
+    fetch(`/superuser/api/branches/${branchId}/details`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const branch = data.branch;
+                modalTitle.textContent = `${branch.name} Details`;
+                editBtn.href = `/superuser/branches/${branch.id}/edit`;
+                
+                modalContent.innerHTML = `
+                    <div class="row">
+                        <!-- Basic Information -->
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-info-circle"></i> Basic Information
+                            </h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Name:</strong></td>
+                                    <td>${branch.name}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Code:</strong></td>
+                                    <td><span class="badge bg-secondary">${branch.code}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td>
+                                        <span class="badge ${branch.is_active ? 'bg-success' : 'bg-danger'}">
+                                            ${branch.is_active ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Manager:</strong></td>
+                                    <td>${branch.manager_name || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Phone:</strong></td>
+                                    <td>${branch.phone || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Email:</strong></td>
+                                    <td>${branch.email || 'N/A'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <!-- Configuration -->
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-cog"></i> Configuration
+                            </h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Timezone:</strong></td>
+                                    <td>${branch.timezone}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Currency:</strong></td>
+                                    <td>${branch.currency}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tax Rate:</strong></td>
+                                    <td>${branch.tax_rate}%</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Service Charge:</strong></td>
+                                    <td>${branch.service_charge}%</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Created:</strong></td>
+                                    <td>${branch.created_at || 'N/A'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Updated:</strong></td>
+                                    <td>${branch.updated_at || 'N/A'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    ${branch.address ? `
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-2">
+                                <i class="fas fa-map-marker-alt"></i> Address
+                            </h6>
+                            <p class="text-muted">${branch.address}</p>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Statistics -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-chart-bar"></i> Statistics
+                            </h6>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <div class="h4 mb-0">${branch.statistics.total_users}</div>
+                                    <small>Total Users</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <div class="h4 mb-0">${branch.statistics.total_orders}</div>
+                                    <small>Total Orders</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <div class="h4 mb-0">${branch.statistics.today_orders}</div>
+                                    <small>Today's Orders</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <div class="h4 mb-0">${branch.currency} ${branch.statistics.today_revenue.toFixed(2)}</div>
+                                    <small>Today's Revenue</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Stats -->
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Resources</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Tables:</span>
+                                        <strong>${branch.statistics.total_tables}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Categories:</span>
+                                        <strong>${branch.statistics.total_categories}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Menu Items:</span>
+                                        <strong>${branch.statistics.total_menu_items}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Users by Role</h6>
+                                </div>
+                                <div class="card-body">
+                                    ${Object.entries(branch.users_by_role).map(([role, count]) => `
+                                        <div class="d-flex justify-content-between">
+                                            <span>${role}:</span>
+                                            <strong>${count}</strong>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Revenue</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <span>Total Revenue:</span>
+                                        <strong>${branch.currency} ${branch.statistics.total_revenue.toFixed(2)}</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Today's Revenue:</span>
+                                        <strong>${branch.currency} ${branch.statistics.today_revenue.toFixed(2)}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${branch.recent_orders.length > 0 ? `
+                    <!-- Recent Orders -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">
+                                <i class="fas fa-receipt"></i> Recent Orders
+                            </h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Order #</th>
+                                            <th>Amount</th>
+                                            <th>Cashier</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${branch.recent_orders.map(order => `
+                                            <tr>
+                                                <td>#${order.order_number}</td>
+                                                <td>${branch.currency} ${order.total_amount.toFixed(2)}</td>
+                                                <td>${order.cashier_name}</td>
+                                                <td>${order.created_at}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+            } else {
+                modalContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Error loading branch details: ${data.message}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            modalContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Error loading branch details. Please try again.
+                </div>
+            `;
+        });
+}
+</script>
+{% endblock %}

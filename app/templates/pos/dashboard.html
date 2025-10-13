@@ -1,0 +1,675 @@
+{% extends "base.html" %}
+
+{% block title %}Cashier Dashboard - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1>Cashier Dashboard</h1>
+        <p class="text-muted">Welcome, {{ current_user.get_full_name() }}!</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Orders</h5>
+                        <h2>{{ total_orders }}</h2>
+                        <small>All Time</small>
+                    </div>
+                    <i class="bi bi-receipt" style="font-size: 3rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Today's Sales</h5>
+                        <h2>{{ "%.2f"|format(today_sales) }} QAR</h2>
+                        <small>{{ today_orders }} orders</small>
+                    </div>
+                    <i class="bi bi-currency-dollar" style="font-size: 3rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Today's Orders</h5>
+                        <h2>{{ today_orders }}</h2>
+                        <small>{{ "%.2f"|format(today_sales/today_orders if today_orders > 0 else 0) }} QAR avg</small>
+                    </div>
+                    <i class="bi bi-cart-check" style="font-size: 3rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Revenue</h5>
+                        <h2>{{ "%.0f"|format(total_revenue) }}</h2>
+                        <small>QAR All Time</small>
+                    </div>
+                    <i class="bi bi-piggy-bank" style="font-size: 3rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Waiter Statistics Section (Only for Cashiers) -->
+{% if current_user.role.value == 'cashier' and waiter_stats %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-person-badge"></i> Waiter Orders Today
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-receipt text-warning" style="font-size: 2rem;"></i>
+                                <h4 class="mt-2">{{ waiter_stats.orders_today }}</h4>
+                                <small class="text-muted">Orders from Waiters</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-currency-dollar text-success" style="font-size: 2rem;"></i>
+                                <h4 class="mt-2">{{ "%.2f"|format(waiter_stats.sales_today) }}</h4>
+                                <small class="text-muted">QAR Paid Sales</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-clock text-warning" style="font-size: 2rem;"></i>
+                                <h4 class="mt-2">{{ waiter_stats.pending_orders }}</h4>
+                                <small class="text-muted">Pending Payment</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <a href="{{ url_for('pos.orders') }}" class="btn btn-warning btn-lg">
+                                    <i class="bi bi-list-check"></i> View Orders
+                                </a>
+                                <small class="d-block text-muted mt-1">Manage Payments</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Note:</strong> Waiter orders appear as "Pending" until you mark them as "Paid" when customers complete payment. 
+                            Only paid orders count toward revenue statistics.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Print Report Section -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-file-earmark-pdf"></i> Daily Report
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h6>📋 End of Shift Report</h6>
+                        <p class="mb-0">Generate your daily performance report for management review. This report includes today's sales, orders, and 7-day performance trends.</p>
+                        <small class="text-muted">⚠️ Required before logout</small>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button id="printReportBtn" class="btn btn-danger btn-lg">
+                            <i class="bi bi-printer"></i> Print Daily Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Sales Trend (Last 7 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="salesChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('pos.index') }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-cash-register"></i> Back to POS
+                    </a>
+                    <a href="{{ url_for('pos.orders') }}" class="btn btn-info btn-lg">
+                        <i class="bi bi-list-ul"></i> My Orders
+                    </a>
+                    <button id="refreshStatsBtn" class="btn btn-secondary btn-lg">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Stats
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Orders</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Table</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Service</th>
+                                <th>Time</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr data-order-id="{{ order.id }}">
+                                <td>{{ order.order_number }}</td>
+                                <td>{{ order.table.table_number if order.table else 'N/A' }}</td>
+                                <td>
+                                    {% set regular_items = [] %}
+                                    {% for item in order.order_items %}
+                                        {% if 'طلبات خاصة' not in item.menu_item.name %}
+                                            {% set _ = regular_items.append(item) %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    <span class="badge bg-info">{{ regular_items | length }}</span>
+                                </td>
+                                <td>{{ "%.2f"|format(order.total_amount) }} QAR</td>
+                                <td>
+                                    {% if order.service_type %}
+                                        {% if order.service_type.value == 'on_table' %}
+                                            <span class="badge bg-primary">On Table</span>
+                                        {% elif order.service_type.value == 'take_away' %}
+                                            <span class="badge bg-warning">Take Away</span>
+                                        {% elif order.service_type.value == 'delivery' %}
+                                            <span class="badge bg-info">Delivery</span>
+                                            {% if order.delivery_company %}
+                                                <br><small class="text-muted">{{ order.delivery_company.value.title() }}</small>
+                                            {% endif %}
+                                        {% elif order.service_type.value == 'card' %}
+                                            <span class="badge bg-success">Card Payment</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ order.service_type.value.replace('_', ' ').title() }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ order.created_at | local_datetime_short }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary view-order" data-order-id="{{ order.id }}">
+                                        <i class="bi bi-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sales chart - only initialize if we have data
+    const salesChartElement = document.getElementById('salesChart');
+    if (salesChartElement) {
+        const ctx = salesChartElement.getContext('2d');
+        // Sample data for the chart
+        const salesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [
+                    {% for sale in daily_sales %}
+                    '{{ sale.date }}',
+                    {% endfor %}
+                ],
+                datasets: [{
+                    label: 'Daily Sales (QAR)',
+                    data: [
+                        {% for sale in daily_sales %}
+                        {{ sale.total }},
+                        {% endfor %}
+                    ],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    // Print daily report functionality
+    document.getElementById('printReportBtn').addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating Report...';
+        
+        // Open daily report in new window - PDF generation now automatically marks as printed
+        const reportWindow = window.open('/pos/daily_report', '_blank');
+        
+        // Re-enable button after a short delay
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-printer"></i> Print Daily Report';
+            showNotification('Daily report generated and marked as printed. You can now logout safely.');
+        }, 2000);
+        
+        // Fallback: Also call the mark endpoint for redundancy (in case PDF generation fails)
+        setTimeout(() => {
+            fetch('/pos/mark_daily_report_printed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Daily report status confirmed on server');
+                } else {
+                    console.log('Report already marked or error:', data.error);
+                }
+            })
+            .catch(error => {
+                console.log('Backup marking call failed (likely already marked):', error);
+            });
+        }, 1000);
+    });
+    
+    // Refresh stats functionality
+    document.getElementById('refreshStatsBtn').addEventListener('click', function() {
+        location.reload();
+    });
+    
+    // View order details
+    document.querySelectorAll('.view-order').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            viewOrder(orderId);
+        });
+    });
+    
+    // Connect to SocketIO
+    const socket = io();
+    
+    // Listen for order status updates
+    socket.on('order_status_updated', function(data) {
+        // Update the status badge in the recent orders table
+        const statusBadge = document.querySelector(`tr[data-order-id="${data.order_id}"] .badge`);
+        if (statusBadge) {
+            // Update badge color based on new status
+            let badgeClass = 'bg-secondary';
+            if (data.new_status === 'pending') {
+                badgeClass = 'bg-primary';
+            } else if (data.new_status === 'in_progress') {
+                badgeClass = 'bg-warning';
+            } else if (data.new_status === 'ready') {
+                badgeClass = 'bg-success';
+            }
+            
+            statusBadge.className = `badge ${badgeClass}`;
+            statusBadge.textContent = data.new_status.replace('_', ' ').toUpperCase();
+        }
+        
+        // Show notification
+        showNotification(`Order ${data.order_number} status updated to ${data.new_status.replace('_', ' ')}`);
+    });
+    
+    function showNotification(message) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-info alert-dismissible fade show position-fixed';
+        notification.style = 'top: 20px; right: 20px; z-index: 9999;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+    }
+});
+
+function showInvoiceModal(orderId) {
+    const modal = new bootstrap.Modal(document.getElementById('invoiceModal'));
+    const modalContent = document.getElementById('invoiceContent');
+    
+    // Show loading
+    modalContent.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading invoice...</p>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Fetch order details
+    fetch(`/pos/get_order_details/${orderId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderInvoice(data.order);
+            } else {
+                modalContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Error loading invoice: ${data.message}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            modalContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Error loading invoice. Please try again.
+                </div>
+            `;
+        });
+}
+
+function renderInvoice(orderData) {
+    // Format service type
+    let serviceInfo = '';
+    if (orderData.service_type) {
+        switch(orderData.service_type) {
+            case 'on_table':
+                serviceInfo = '<span class="badge bg-primary">On Table</span>';
+                break;
+            case 'take_away':
+                serviceInfo = '<span class="badge bg-warning">Take Away</span>';
+                break;
+            case 'delivery':
+                serviceInfo = '<span class="badge bg-info">Delivery</span>';
+                if (orderData.delivery_company) {
+                    serviceInfo += `<br><small class="text-muted">${orderData.delivery_company}</small>`;
+                }
+                break;
+            case 'card':
+                serviceInfo = '<span class="badge bg-success">Card Payment</span>';
+                break;
+            default:
+                serviceInfo = `<span class="badge bg-secondary">${orderData.service_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>`;
+        }
+    } else {
+        serviceInfo = '<span class="badge bg-secondary">N/A</span>';
+    }
+    
+    // Count regular items (excluding special items)
+    const regularItemsCount = orderData.items.filter(item => !item.menu_item_name.includes('طلبات خاصة')).length;
+    
+    // Format service type for prominent display
+    let serviceDisplay = 'N/A';
+    if (orderData.service_type) {
+        switch(orderData.service_type) {
+            case 'on_table':
+                serviceDisplay = '🍽️ ON TABLE';
+                break;
+            case 'take_away':
+                serviceDisplay = '📦 TAKE AWAY';
+                break;
+            case 'delivery':
+                serviceDisplay = '🚚 DELIVERY';
+                break;
+            case 'card':
+                serviceDisplay = '💳 CARD PAYMENT';
+                break;
+            default:
+                serviceDisplay = orderData.service_type.replace('_', ' ').toUpperCase();
+        }
+    }
+    
+    const invoiceContent = `
+        <div class="invoice-container" style="font-family: 'Courier New', monospace; max-width: 80mm;">
+            <div class="invoice-header" style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px;">
+                <h3>🍽️ Restaurant POS</h3>
+                <p><strong>Order #${orderData.order_number}</strong></p>
+                <p>${new Date(orderData.created_at).toLocaleString()}</p>
+                ${orderData.table_number ? `<p><strong>Table: ${orderData.table_number}</strong></p>` : ''}
+                ${orderData.cashier_name ? `<p><strong>Cashier:</strong> ${orderData.cashier_name}</p>` : ''}
+            </div>
+            
+            <!-- Prominent Service Type Display -->
+            <div style="background: #000; color: #fff; padding: 8px; margin: 10px 0; text-align: center; font-weight: bold; font-size: 16px; border: 2px solid #000;">
+                ${serviceDisplay}
+            </div>
+            
+            <!-- Delivery Company Info -->
+            ${orderData.service_type === 'delivery' && orderData.delivery_company ? 
+                `<div style="background: #f0f0f0; padding: 5px; margin: 5px 0; text-align: center; font-weight: bold; border: 1px solid #000;">
+                    📱 ${orderData.delivery_company}
+                </div>` : ''}
+            
+            <!-- Item Count -->
+            <div style="background: #e0e0e0; padding: 5px; margin: 5px 0; text-align: center; font-weight: bold; border: 1px solid #000;">
+                📋 ${regularItemsCount} REGULAR ITEMS
+            </div>
+            
+            <div class="invoice-items mt-3">
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                        <tr>
+                            <th style="border-bottom: 1px solid #000; padding: 3px 2px; background: #f0f0f0; font-weight: bold;">Item</th>
+                            <th style="border-bottom: 1px solid #000; padding: 3px 2px; background: #f0f0f0; font-weight: bold;">Qty</th>
+                            <th style="border-bottom: 1px solid #000; padding: 3px 2px; background: #f0f0f0; font-weight: bold; text-align: right;">Price</th>
+                            <th style="border-bottom: 1px solid #000; padding: 3px 2px; background: #f0f0f0; font-weight: bold; text-align: right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${orderData.items.map(item => `
+                            <tr>
+                                <td style="border-bottom: 1px solid #000; padding: 3px 2px;">
+                                    ${item.menu_item_name}
+                                    ${item.special_requests ? `<br><small>${item.special_requests}</small>` : ''}
+                                </td>
+                                <td style="border-bottom: 1px solid #000; padding: 3px 2px;">${item.quantity}</td>
+                                <td style="border-bottom: 1px solid #000; padding: 3px 2px; text-align: right;">${item.unit_price.toFixed(2)} QAR</td>
+                                <td style="border-bottom: 1px solid #000; padding: 3px 2px; text-align: right;">${item.total_price.toFixed(2)} QAR</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-3" style="margin-top: 10px;">
+                <table style="width: 100%; margin-top: 10px;">
+                    <tr>
+                        <td style="font-weight: bold;">Total:</td>
+                        <td style="text-align: right; font-weight: bold;">${orderData.total_amount.toFixed(2)} QAR</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <p><strong>Thank you for your business!</strong></p>
+                <p>Visit us again soon.</p>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('invoiceContent').innerHTML = invoiceContent;
+}
+
+// Keep backward compatibility - redirect old function calls to new modal
+function viewOrder(orderId) {
+    showInvoiceModal(orderId);
+}
+
+// Print invoice functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const printInvoiceBtn = document.getElementById('printInvoiceBtn');
+    if (printInvoiceBtn) {
+        printInvoiceBtn.addEventListener('click', function() {
+            const invoiceContent = document.getElementById('invoiceContent').innerHTML;
+            
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(
+                '<!DOCTYPE html>' +
+                '<html>' +
+                '<head>' +
+                    '<title>Invoice</title>' +
+                    '<style>' +
+                        'body {' +
+                            'font-family: "Courier New", monospace;' +
+                            'margin: 0;' +
+                            'padding: 20px;' +
+                            'background: white;' +
+                        '}' +
+                        '@media print {' +
+                            'body {' +
+                                'margin: 0;' +
+                                'padding: 0;' +
+                            '}' +
+                            '.invoice-container {' +
+                                'max-width: 80mm;' +
+                                'margin: 0 auto;' +
+                            '}' +
+                            '.no-print {' +
+                                'display: none;' +
+                            '}' +
+                        '}' +
+                        '.invoice-container {' +
+                            'max-width: 80mm;' +
+                            'margin: 0 auto;' +
+                        '}' +
+                    '</style>' +
+                '</head>' +
+                '<body>' +
+                    invoiceContent +
+                    '<div class="text-center no-print mt-3" style="margin-top: 20px;">' +
+                        '<button onclick="window.print()" style="padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">' +
+                            '🖨️ Print Invoice' +
+                        '</button>' +
+                        '<button onclick="window.close()" style="padding: 10px 20px; margin: 5px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer;">' +
+                            '❌ Close' +
+                        '</button>' +
+                    '</div>' +
+                '</body>' +
+                '</html>'
+            );
+            printWindow.document.close();
+            
+            // Handle window focus separately to avoid template literal issues
+            setTimeout(function() {
+                printWindow.focus();
+            }, 100);
+        });
+    }
+});
+</script>
+
+<!-- Invoice Modal (Same as Orders Page) -->
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-labelledby="invoiceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="invoiceModalLabel">
+                    <i class="bi bi-receipt-cutoff me-2"></i>Order Invoice
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="invoiceContent">
+                <!-- Invoice content will be loaded here -->
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading invoice...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Close
+                </button>
+                <button type="button" class="btn btn-primary" id="printInvoiceBtn">
+                    <i class="bi bi-printer me-2"></i>Print Invoice
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

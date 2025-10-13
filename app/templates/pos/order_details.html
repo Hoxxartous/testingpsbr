@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Order Details - {{ order.order_number }} - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="display-6 mb-1">
+                        <i class="bi bi-receipt text-primary me-2"></i>Order #{{ order.order_number }}
+                    </h1>
+                    <p class="text-muted mb-0">Order Details - {{ order.created_at | local_datetime_short }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('pos.waiter_requests') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left"></i> Back to Waiter Requests
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Order Information -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Order Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Order Number:</strong></div>
+                        <div class="col-sm-8">#{{ order.order_number }}</div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Status:</strong></div>
+                        <div class="col-sm-8">
+                            {% if order.status.name == 'PAID' %}
+                                <span class="badge bg-success">Paid</span>
+                            {% elif order.status.name == 'PENDING' %}
+                                <span class="badge bg-warning">Pending</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ order.status.name.title() }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Table:</strong></div>
+                        <div class="col-sm-8">
+                            {% if order.table %}
+                                Table {{ order.table.number }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Service Type:</strong></div>
+                        <div class="col-sm-8">
+                            {% if order.service_type %}
+                                <span class="badge bg-info">{{ order.service_type.name.replace('_', ' ').title() }}</span>
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Created:</strong></div>
+                        <div class="col-sm-8">{{ order.created_at | local_datetime_short }}</div>
+                    </div>
+                    {% if order.paid_at %}
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Paid:</strong></div>
+                        <div class="col-sm-8">{{ order.paid_at | local_datetime_short }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Total Amount:</strong></div>
+                        <div class="col-sm-8">
+                            <h4 class="text-success mb-0">QAR {{ "%.2f"|format(order.total_amount) }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staff Information -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-people me-2"></i>Staff Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Created By:</strong></div>
+                        <div class="col-sm-8">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-badge text-warning me-2"></i>
+                                {{ order.creator.get_full_name() }}
+                                <span class="badge bg-light text-dark ms-2">{{ order.creator.role.name.title() }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% if order.assigned_cashier %}
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Assigned To:</strong></div>
+                        <div class="col-sm-8">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-check text-primary me-2"></i>
+                                {{ order.assigned_cashier.get_full_name() }}
+                                <span class="badge bg-light text-dark ms-2">Cashier</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Branch:</strong></div>
+                        <div class="col-sm-8">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-building text-info me-2"></i>
+                                {{ order.branch.name }}
+                            </div>
+                        </div>
+                    </div>
+                    {% if order.notes %}
+                    <div class="row mb-3">
+                        <div class="col-sm-4"><strong>Notes:</strong></div>
+                        <div class="col-sm-8">
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-sticky me-2"></i>
+                                {{ order.notes }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Items -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-basket me-2"></i>Order Items ({{ order.items|length }})
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if order.items %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Category</th>
+                                        <th class="text-center">Quantity</th>
+                                        <th class="text-end">Unit Price</th>
+                                        <th class="text-end">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in order.items %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    {% if item.menu_item.image_url %}
+                                                        <img src="{{ item.menu_item.image_url }}" alt="{{ item.menu_item.name }}" 
+                                                             class="rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                                                    {% else %}
+                                                        <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                                             style="width: 40px; height: 40px;">
+                                                            <i class="bi bi-image text-muted"></i>
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold">{{ item.menu_item.name }}</div>
+                                                    {% if item.special_requests %}
+                                                        <small class="text-muted">
+                                                            <i class="bi bi-chat-square-text me-1"></i>
+                                                            {{ item.special_requests }}
+                                                        </small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">{{ item.menu_item.category.name }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary">{{ item.quantity }}</span>
+                                        </td>
+                                        <td class="text-end">QAR {{ "%.2f"|format(item.price) }}</td>
+                                        <td class="text-end fw-bold">QAR {{ "%.2f"|format(item.quantity * item.price) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <th colspan="4" class="text-end">Total Amount:</th>
+                                        <th class="text-end text-success">QAR {{ "%.2f"|format(order.total_amount) }}</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-basket display-4 text-muted"></i>
+                            <h5 class="mt-3 text-muted">No Items Found</h5>
+                            <p class="text-muted">This order doesn't have any items.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    {% if order.status.name == 'PENDING' and (current_user.role.name in ['CASHIER', 'BRANCH_ADMIN', 'SUPER_USER']) %}
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <button class="btn btn-success btn-lg" onclick="markOrderAsPaid({{ order.id }})">
+                <i class="bi bi-check-circle me-2"></i>Mark as Paid
+            </button>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function markOrderAsPaid(orderId) {
+    if (confirm('Are you sure you want to mark this order as paid?')) {
+        fetch(`/pos/mark_order_paid/${orderId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Order marked as paid successfully!');
+                location.reload();
+            } else {
+                alert('Error marking order as paid: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error marking order as paid');
+        });
+    }
+}
+</script>
+{% endblock %}

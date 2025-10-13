@@ -1,0 +1,38 @@
+services:
+  # Main web application with maximum performance configuration
+  - type: web
+    name: restaurant-pos
+    runtime: python
+    plan: free
+    buildCommand: |
+      chmod +x build.sh
+      ./build.sh
+    startCommand: "gunicorn --config gunicorn.conf.py wsgi:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: FLASK_APP
+        value: "wsgi.py"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: TIMEZONE
+        value: "Asia/Qatar"
+      - key: CURRENCY
+        value: "QAR"
+      # Performance optimizations
+      - key: MALLOC_ARENA_MAX
+        value: "2"  # Reduce memory fragmentation
+      - key: PYTHONHASHSEED
+        value: "random"
+
+databases:
+  - name: restaurant-pos-postgres
+    databaseName: restaurant_pos
+    user: restaurant_user
+    plan: free

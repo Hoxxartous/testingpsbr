@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}Cashier Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-cog"></i> Cashier Settings
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">
+                                        <i class="fas fa-key"></i> PIN Code Management
+                                    </h4>
+                                </div>
+                                <div class="card-body">
+                                    {% if has_pin %}
+                                        <div class="alert alert-success">
+                                            <i class="fas fa-check-circle"></i>
+                                            You have an active PIN code set up.
+                                        </div>
+                                        
+                                        <!-- Change PIN Form -->
+                                        <div class="mb-4">
+                                            <h5>Change PIN Code</h5>
+                                            <form id="changePinForm">
+                                                <div class="form-group">
+                                                    <label for="currentPin">Current PIN</label>
+                                                    <input type="password" class="form-control" id="currentPin" maxlength="4" placeholder="Enter current PIN">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="newPin">New PIN</label>
+                                                    <input type="password" class="form-control" id="newPin" maxlength="4" placeholder="Enter new 4-digit PIN">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="confirmNewPin">Confirm New PIN</label>
+                                                    <input type="password" class="form-control" id="confirmNewPin" maxlength="4" placeholder="Confirm new PIN">
+                                                </div>
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="fas fa-save"></i> Change PIN
+                                                </button>
+                                            </form>
+                                        </div>
+                                        
+                                        <!-- Disable PIN Form -->
+                                        <div class="mb-4">
+                                            <h5 class="text-danger">Disable PIN Code</h5>
+                                            <p class="text-muted">
+                                                <small>Warning: Disabling your PIN will prevent waiters from assigning orders to you.</small>
+                                            </p>
+                                            <form id="disablePinForm">
+                                                <div class="form-group">
+                                                    <label for="disableCurrentPin">Current PIN</label>
+                                                    <input type="password" class="form-control" id="disableCurrentPin" maxlength="4" placeholder="Enter current PIN to disable">
+                                                </div>
+                                                <button type="submit" class="btn btn-danger">
+                                                    <i class="fas fa-times"></i> Disable PIN
+                                                </button>
+                                            </form>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-warning">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            You don't have a PIN code set up. Waiters won't be able to assign orders to you.
+                                        </div>
+                                        
+                                        <!-- Set PIN Form -->
+                                        <div class="mb-4">
+                                            <h5>Set Up PIN Code</h5>
+                                            <form id="setPinForm">
+                                                <div class="form-group">
+                                                    <label for="setPinNew">New PIN</label>
+                                                    <input type="password" class="form-control" id="setPinNew" maxlength="4" placeholder="Enter 4-digit PIN">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="setPinConfirm">Confirm PIN</label>
+                                                    <input type="password" class="form-control" id="setPinConfirm" maxlength="4" placeholder="Confirm PIN">
+                                                </div>
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="fas fa-plus"></i> Set PIN
+                                                </button>
+                                            </form>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4 class="card-title">
+                                        <i class="fas fa-info-circle"></i> PIN Code Information
+                                    </h4>
+                                </div>
+                                <div class="card-body">
+                                    <h6>What is a PIN Code?</h6>
+                                    <p class="text-muted">
+                                        Your PIN code is a 4-digit security code that waiters need to enter when they want to assign orders to you.
+                                    </p>
+                                    
+                                    <h6>How does it work?</h6>
+                                    <ul class="text-muted">
+                                        <li>Waiters select you from the cashier list</li>
+                                        <li>They enter your PIN code to confirm the assignment</li>
+                                        <li>All their orders will then be assigned to you</li>
+                                        <li>Only you know your PIN code</li>
+                                    </ul>
+                                    
+                                    <h6>Security Tips</h6>
+                                    <ul class="text-muted">
+                                        <li>Keep your PIN code private</li>
+                                        <li>Don't share it with unauthorized personnel</li>
+                                        <li>Change it regularly for better security</li>
+                                        <li>Use a PIN that's easy for you to remember but hard for others to guess</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Modal -->
+<div class="modal fade" id="messageModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="messageModalTitle">Message</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="messageModalBody"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Restrict input to numbers only
+    $('input[type="password"]').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        if (this.value.length > 4) {
+            this.value = this.value.slice(0, 4);
+        }
+    });
+    
+    // Set PIN Form
+    $('#setPinForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const newPin = $('#setPinNew').val();
+        const confirmPin = $('#setPinConfirm').val();
+        
+        if (!newPin || newPin.length !== 4) {
+            showMessage('Error', 'PIN must be exactly 4 digits', 'error');
+            return;
+        }
+        
+        if (newPin !== confirmPin) {
+            showMessage('Error', 'PIN confirmation does not match', 'error');
+            return;
+        }
+        
+        $.ajax({
+            url: '/cashier/set_pin',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                new_pin: newPin,
+                confirm_pin: confirmPin
+            }),
+            success: function(response) {
+                if (response.success) {
+                    showMessage('Success', response.message, 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showMessage('Error', response.message, 'error');
+                }
+            },
+            error: function() {
+                showMessage('Error', 'An error occurred while setting PIN', 'error');
+            }
+        });
+    });
+    
+    // Change PIN Form
+    $('#changePinForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const currentPin = $('#currentPin').val();
+        const newPin = $('#newPin').val();
+        const confirmNewPin = $('#confirmNewPin').val();
+        
+        if (!currentPin || currentPin.length !== 4) {
+            showMessage('Error', 'Current PIN must be exactly 4 digits', 'error');
+            return;
+        }
+        
+        if (!newPin || newPin.length !== 4) {
+            showMessage('Error', 'New PIN must be exactly 4 digits', 'error');
+            return;
+        }
+        
+        if (newPin !== confirmNewPin) {
+            showMessage('Error', 'New PIN confirmation does not match', 'error');
+            return;
+        }
+        
+        $.ajax({
+            url: '/cashier/change_pin',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                current_pin: currentPin,
+                new_pin: newPin,
+                confirm_pin: confirmNewPin
+            }),
+            success: function(response) {
+                if (response.success) {
+                    showMessage('Success', response.message, 'success');
+                    $('#changePinForm')[0].reset();
+                } else {
+                    showMessage('Error', response.message, 'error');
+                }
+            },
+            error: function() {
+                showMessage('Error', 'An error occurred while changing PIN', 'error');
+            }
+        });
+    });
+    
+    // Disable PIN Form
+    $('#disablePinForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const currentPin = $('#disableCurrentPin').val();
+        
+        if (!currentPin || currentPin.length !== 4) {
+            showMessage('Error', 'Current PIN must be exactly 4 digits', 'error');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to disable your PIN? Waiters will not be able to assign orders to you.')) {
+            return;
+        }
+        
+        $.ajax({
+            url: '/cashier/disable_pin',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                current_pin: currentPin
+            }),
+            success: function(response) {
+                if (response.success) {
+                    showMessage('Success', response.message, 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showMessage('Error', response.message, 'error');
+                }
+            },
+            error: function() {
+                showMessage('Error', 'An error occurred while disabling PIN', 'error');
+            }
+        });
+    });
+    
+    function showMessage(title, message, type) {
+        $('#messageModalTitle').text(title);
+        $('#messageModalBody').text(message);
+        
+        const modal = $('#messageModal');
+        const header = modal.find('.modal-header');
+        
+        // Remove existing classes
+        header.removeClass('bg-success bg-danger bg-warning');
+        
+        // Add appropriate class based on type
+        if (type === 'success') {
+            header.addClass('bg-success text-white');
+        } else if (type === 'error') {
+            header.addClass('bg-danger text-white');
+        } else {
+            header.addClass('bg-warning');
+        }
+        
+        modal.modal('show');
+    }
+});
+</script>
+{% endblock %}

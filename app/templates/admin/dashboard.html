@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Restaurant POS{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1>Admin Dashboard</h1>
+                <p class="text-muted">Welcome, {{ current_user.get_full_name() }}!</p>
+            </div>
+            {% if branch_info %}
+            <div class="text-end">
+                <span class="badge bg-primary fs-6">{{ branch_info.name }}</span>
+                <small class="text-muted d-block">Branch ID: {{ branch_info.id }}</small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Orders</h5>
+                        <h2>{{ total_orders }}</h2>
+                        <small class="text-light">Paid: {{ total_paid_orders }} | Unpaid: {{ total_unpaid_orders }}</small>
+                    </div>
+                    <i class="bi bi-receipt" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.orders') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Today's Orders</h5>
+                        <h2>{{ today_orders }}</h2>
+                        <small class="text-dark">Paid: {{ today_paid_orders }} | Unpaid: {{ today_unpaid_orders }}</small>
+                    </div>
+                    <i class="bi bi-receipt-cutoff" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.orders') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Revenue</h5>
+                        <h2>{{ "%.0f"|format(total_revenue) }} QAR</h2>
+                        <small class="text-light">From Paid Orders Only</small>
+                    </div>
+                    <i class="bi bi-currency-dollar" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.dashboard') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Today's Sales</h5>
+                        <h2>{{ "%.2f"|format(today_sales) }} QAR</h2>
+                        <small class="text-light">From Paid Orders Only</small>
+                    </div>
+                    <i class="bi bi-currency-dollar" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.dashboard') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edited Orders Statistics -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Orders Edited Today</h5>
+                        <h2>{{ edited_orders_today }}</h2>
+                        <small class="text-dark">Orders modified by cashiers</small>
+                    </div>
+                    <i class="bi bi-pencil-square" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.orders') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card text-white bg-secondary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Edited Orders</h5>
+                        <h2>{{ total_edited_orders }}</h2>
+                        <small class="text-light">All-time edited orders count</small>
+                    </div>
+                    <i class="bi bi-pencil-fill" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.orders') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Waiter Orders Section (Branch-specific) -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-person-badge"></i> Waiter Orders Today (Branch: {{ branch_info.name if branch_info else 'N/A' }})
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-receipt text-warning" style="font-size: 2rem;"></i>
+                                <h4 class="mt-2">{{ waiter_stats.orders_today }}</h4>
+                                <small class="text-muted">Orders from Waiters</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-currency-dollar text-success" style="font-size: 2rem;"></i>
+                                <h4 class="mt-2">{{ "%.2f"|format(waiter_stats.sales_today) }}</h4>
+                                <small class="text-muted">QAR Paid Sales</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <i class="bi bi-clock text-warning" style="font-size: 2rem;"></i>
+                                <h4 class="mt-2">{{ waiter_stats.pending_orders }}</h4>
+                                <small class="text-muted">Pending Payment</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <a href="{{ url_for('admin.orders') }}" class="btn btn-warning btn-lg mb-2">
+                                    <i class="bi bi-list-check"></i> View Orders
+                                </a>
+                                <br>
+                                <small class="d-block text-muted mt-1">Manage Payments & Editing</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Branch Admin View:</strong> These statistics show waiter orders from all cashiers in your branch ({{ branch_info.name if branch_info else 'N/A' }}). 
+                            Order numbers increase immediately when waiters send requests, but revenue is only counted when cashiers mark orders as paid.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Sales Overview</h5>
+                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-graph-up"></i> View Reports
+                </a>
+            </div>
+            <div class="card-body">
+                <canvas id="salesChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Top Selling Items</h5>
+                <a href="{{ url_for('admin.menu') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-list"></i> View Menu
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Quantity Sold</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in top_items %}
+                            <tr>
+                                <td>{{ item.name }}</td>
+                                <td>{{ item.total_quantity }}</td>
+                                <td>{{ "%.2f"|format(item.total_revenue) }} QAR</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Recent Orders</h5>
+                <a href="{{ url_for('admin.orders') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-receipt"></i> View All Orders
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Table</th>
+                                <th>Total</th>
+                                <th>Cashier</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td>{{ order.order_number }}</td>
+                                <td>{{ order.table.table_number if order.table else 'N/A' }}</td>
+                                <td>{{ "%.2f"|format(order.total_amount) }} QAR</td>
+                                <td>{{ order.cashier.username if order.cashier else 'N/A' }}</td>
+                                <td>{{ order.created_at | local_datetime_short }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Recent Activity</h5>
+                <a href="{{ url_for('admin.audit_logs') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-journal-text"></i> View Logs
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td>{{ log.user.username if log.user else 'System' }}</td>
+                                <td>{{ log.action.replace('_', ' ').title() }}</td>
+                                <td>{{ log.created_at | local_datetime_short }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sales chart
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    const salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [
+                {% for sale in daily_sales %}
+                {% if sale.date is string %}
+                '{{ sale.date }}',
+                {% else %}
+                '{{ sale.date.strftime('%a, %b %d') }}',
+                {% endif %}
+                {% endfor %}
+            ],
+            datasets: [{
+                label: 'Daily Sales (QAR)',
+                data: [
+                    {% for sale in daily_sales %}
+                    {{ sale.total or 0 }},
+                    {% endfor %}
+                ],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
