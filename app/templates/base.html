@@ -183,16 +183,6 @@
                                 <i class="bi bi-table"></i> Table Management
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('pos.index') }}">
-                                <i class="bi bi-calculator"></i> POS
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('pos.orders') }}">
-                                <i class="bi bi-list"></i> My Orders
-                            </a>
-                        </li>
                     {% else %}
                         <li class="nav-item">
                             <a class="nav-link" href="{{ url_for('pos.index') }}">
@@ -244,6 +234,40 @@
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     
     <script>
+    // Global Socket.IO initialization for all pages
+    let socket;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Socket.IO connection globally
+        socket = io();
+        
+        // Global connection event handlers
+        socket.on('connect', function() {
+            console.log('Global Socket.IO connected');
+            
+            // Join appropriate rooms based on user role and branch
+            {% if current_user.is_authenticated %}
+                {% if current_user.branch_id %}
+                socket.emit('join', {room: 'branch_{{ current_user.branch_id }}'});
+                console.log('Joined branch room: branch_{{ current_user.branch_id }}');
+                {% endif %}
+                
+                {% if current_user.role.name == 'CASHIER' %}
+                socket.emit('join', {room: 'cashiers_branch_{{ current_user.branch_id }}'});
+                console.log('Joined cashier room: cashiers_branch_{{ current_user.branch_id }}');
+                {% endif %}
+                
+                {% if current_user.role.name == 'WAITER' %}
+                socket.emit('join', {room: 'waiters_branch_{{ current_user.branch_id }}'});
+                console.log('Joined waiter room: waiters_branch_{{ current_user.branch_id }}');
+                {% endif %}
+            {% endif %}
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Global Socket.IO disconnected');
+        });
+    });
     // Multi-cashier restaurant solution - no complex session initialization needed
     {% if current_user.is_authenticated and current_user.role.name == 'CASHIER' %}
     document.addEventListener('DOMContentLoaded', function() {
@@ -746,6 +770,284 @@
             toastElement.remove();
         });
     }
+    
+    // Global Sound Notification System for Cashiers
+    {% if current_user.is_authenticated and current_user.role.name == 'CASHIER' %}
+    // Sound generation functions
+    function generateBeep(frequency = 800, duration = 200, volume = 0.3) {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = frequency;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + duration / 1000);
+    }
+    
+    function playWaiterRequestSound() {
+        // Play a distinctive sound pattern for waiter requests
+        generateBeep(800, 200, 0.4);
+        setTimeout(() => generateBeep(1000, 200, 0.4), 250);
+        setTimeout(() => generateBeep(800, 200, 0.4), 500);
+    }
+    
+    function showWaiterRequestModal(data) {
+        // Remove existing modal if any
+        const existingModal = document.getElementById('waiterRequestModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create modal HTML
+        const modalHtml = `
+            <div class="modal fade" id="waiterRequestModal" tabindex="-1" aria-labelledby="waiterRequestModalLabel" aria-hidden="true" data-bs-backdrop="static">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-warning">
+                        <div class="modal-header bg-warning text-dark">
+                            <h5 class="modal-title" id="waiterRequestModalLabel">
+                                <i class="bi bi-bell-fill me-2"></i>New Waiter Request
+                            </h5>
+                        </div>
+                        <div class="modal-body text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-person-raised-hand display-1 text-warning"></i>
+                            </div>
+                            <h4 class="text-dark mb-3">Table ${data.table_number || 'Unknown'} Needs Assistance</h4>
+                            <p class="text-muted mb-4">A waiter has submitted a new request that requires your attention.</p>
+                            <div class="alert alert-info">
+                                <strong>Request Details:</strong><br>
+                                Table: ${data.table_number || 'Unknown'}<br>
+                                Time: ${new Date().toLocaleTimeString()}<br>
+                                ${data.request_type ? `Type: ${data.request_type}` : ''}
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-center">
+                            <button type="button" class="btn btn-secondary" onclick="closeWaiterRequestModal()">
+                                <i class="bi bi-x-circle me-2"></i>Close
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="goToWaiterRequests()">
+                                <i class="bi bi-arrow-right-circle me-2"></i>View Requests
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('waiterRequestModal'));
+        modal.show();
+        
+        // Auto-close after 10 seconds if not manually closed
+        setTimeout(() => {
+            if (document.getElementById('waiterRequestModal')) {
+                closeWaiterRequestModal();
+            }
+        }, 10000);
+    }
+    
+    function closeWaiterRequestModal() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('waiterRequestModal'));
+        if (modal) {
+            modal.hide();
+        }
+        // Remove modal from DOM after hiding
+        setTimeout(() => {
+            const modalElement = document.getElementById('waiterRequestModal');
+            if (modalElement) {
+                modalElement.remove();
+            }
+        }, 300);
+    }
+    
+    function goToWaiterRequests() {
+        window.location.href = "{{ url_for('pos.waiter_requests') }}";
+    }
+    
+    // Global Socket.IO listener for waiter requests - wait for socket to be initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        // Wait for socket to be available and connected
+        function setupGlobalListeners() {
+            if (socket && socket.connected) {
+                console.log('Setting up global sound notifications for cashier');
+                
+                // Listen for new waiter requests globally
+                socket.on('new_waiter_request', function(data) {
+                    console.log('Global: New waiter request received:', data);
+                    
+                    // Play sound notification
+                    playWaiterRequestSound();
+                    
+                    // Check if we're on specific pages that should show modal
+                    const currentPath = window.location.pathname;
+                    const showModalPages = ['/pos/dashboard', '/pos/orders', '/pos/settings', '/cashier/settings'];
+                    const shouldShowModal = showModalPages.some(page => currentPath.includes(page));
+                    
+                    if (shouldShowModal) {
+                        // Show modal notification for specific pages
+                        showWaiterRequestModal(data);
+                    } else {
+                        // Show toast notification for other pages
+                        const message = `New waiter request from Table ${data.table_number || 'Unknown'}`;
+                        showToast(message, 'info');
+                    }
+                    
+                    // Update waiter requests badge if it exists
+                    const badge = document.querySelector('.waiter-requests-badge');
+                    if (badge) {
+                        const currentCount = parseInt(badge.textContent) || 0;
+                        badge.textContent = currentCount + 1;
+                        badge.style.display = 'inline';
+                    }
+                });
+            } else {
+                // Retry after a short delay
+                setTimeout(setupGlobalListeners, 100);
+            }
+        }
+        
+        // Start setting up listeners
+        setupGlobalListeners();
+    });
+    {% endif %}
+    
+    // Global Sound Notification System for Waiters
+    {% if current_user.is_authenticated and current_user.role.name == 'WAITER' %}
+    // Sound generation function for order edit notifications
+    function playOrderEditedSound() {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 600;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+        gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.2);
+        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    }
+    
+    // Sound generation function for table status change (busy to free)
+    function playTableFreeSound() {
+        // Play a pleasant ascending chime to indicate table is now free
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // First tone (lower)
+        setTimeout(() => {
+            const oscillator1 = audioContext.createOscillator();
+            const gainNode1 = audioContext.createGain();
+            
+            oscillator1.connect(gainNode1);
+            gainNode1.connect(audioContext.destination);
+            
+            oscillator1.frequency.value = 523; // C5
+            oscillator1.type = 'sine';
+            
+            gainNode1.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode1.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
+            gainNode1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator1.start(audioContext.currentTime);
+            oscillator1.stop(audioContext.currentTime + 0.3);
+        }, 0);
+        
+        // Second tone (higher)
+        setTimeout(() => {
+            const oscillator2 = audioContext.createOscillator();
+            const gainNode2 = audioContext.createGain();
+            
+            oscillator2.connect(gainNode2);
+            gainNode2.connect(audioContext.destination);
+            
+            oscillator2.frequency.value = 659; // E5
+            oscillator2.type = 'sine';
+            
+            gainNode2.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode2.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
+            gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+            
+            oscillator2.start(audioContext.currentTime);
+            oscillator2.stop(audioContext.currentTime + 0.4);
+        }, 150);
+    }
+    
+    // Global Socket.IO listener for order edit notifications - wait for socket to be initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        // Wait for socket to be available and connected
+        function setupWaiterGlobalListeners() {
+            if (socket && socket.connected) {
+                console.log('Setting up global order edit notifications for waiter');
+                
+                // Listen for order edit notifications from cashiers globally
+                socket.on('order_edited_by_cashier', function(data) {
+                    console.log('Global: Order edited by cashier event received:', data);
+                    
+                    // Check if this affects our branch
+                    {% if current_user.branch_id %}
+                    if (data.branch_id === {{ current_user.branch_id }}) {
+                        // Play notification sound for waiter
+                        try {
+                            playOrderEditedSound();
+                        } catch (error) {
+                            console.log('Could not play sound:', error);
+                        }
+                        
+                        // Show toast notification
+                        const message = `Order #${data.order_number} on Table ${data.table_number} was edited by ${data.editor_name}`;
+                        showToast(message, 'warning');
+                    }
+                    {% endif %}
+                });
+                
+                // Listen for table status changes (busy to free) globally
+                socket.on('order_paid', function(data) {
+                    console.log('Global: Order paid event received:', data);
+                    
+                    // Check if this affects our branch
+                    {% if current_user.branch_id %}
+                    if (data.branch_id === {{ current_user.branch_id }}) {
+                        // Play notification sound for table becoming free
+                        try {
+                            playTableFreeSound();
+                        } catch (error) {
+                            console.log('Could not play table free sound:', error);
+                        }
+                        
+                        // Show toast notification
+                        const message = `Table ${data.table_number} is now free and available for new orders`;
+                        showToast(message, 'success');
+                    }
+                    {% endif %}
+                });
+            } else {
+                // Retry after a short delay
+                setTimeout(setupWaiterGlobalListeners, 100);
+            }
+        }
+        
+        // Start setting up listeners
+        setupWaiterGlobalListeners();
+    });
+    {% endif %}
     
     // Fix dropdown positioning for collapsible navbar
     document.addEventListener('DOMContentLoaded', function() {

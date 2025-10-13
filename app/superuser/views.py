@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.superuser import superuser
-from app.models import User, Branch, UserRole, Order, Category, MenuItem, Table, Customer, DeliveryCompany, OrderItem, AuditLog, CashierSession, OrderStatus, AppSettings, TimezoneManager, OrderCounter
+from app.models import User, Branch, UserRole, Order, Category, MenuItem, Table, Customer, DeliveryCompany, OrderItem, AuditLog, CashierSession, OrderStatus, AppSettings, TimezoneManager, OrderCounter, OrderEditHistory, ManualCardPayment
 from app import db
 from app.auth.decorators import super_admin_required
 from datetime import datetime, timedelta
@@ -47,8 +47,18 @@ def dashboard():
         Order.status == OrderStatus.PAID
     ).scalar() or 0
     
-    # Get branch performance data - fixed query to show real data
+    # Include manual card payments in revenue calculations
     today = datetime.utcnow().date()
+    manual_card_total_today = db.session.query(func.sum(ManualCardPayment.amount)).filter(
+        ManualCardPayment.date == today
+    ).scalar() or 0
+    manual_card_total_all_time = db.session.query(func.sum(ManualCardPayment.amount)).scalar() or 0
+    
+    # Update totals to include manual card payments
+    today_revenue_with_cards = today_revenue + manual_card_total_today
+    total_revenue_all_time_with_cards = total_revenue_all_time + manual_card_total_all_time
+    
+    # Get branch performance data - fixed query to show real data
     
     # Get today's orders per branch - all orders
     today_orders_subquery = db.session.query(
@@ -83,6 +93,13 @@ def dashboard():
     ).filter(User.is_active == True)\
      .group_by(User.branch_id).subquery()
     
+    # Get manual card payments per branch for today
+    manual_card_subquery = db.session.query(
+        ManualCardPayment.branch_id,
+        func.sum(ManualCardPayment.amount).label('manual_card_amount')
+    ).filter(ManualCardPayment.date == today)\
+     .group_by(ManualCardPayment.branch_id).subquery()
+    
     # Combine branch data with statistics
     branch_stats = db.session.query(
         Branch.id,
@@ -92,10 +109,12 @@ def dashboard():
         func.coalesce(today_paid_orders_subquery.c.paid_orders_count, 0).label('paid_orders_count'),
         func.coalesce(today_unpaid_orders_subquery.c.unpaid_orders_count, 0).label('unpaid_orders_count'),
         func.coalesce(today_paid_orders_subquery.c.revenue, 0).label('revenue'),
+        func.coalesce(manual_card_subquery.c.manual_card_amount, 0).label('manual_card_amount'),
         func.coalesce(users_subquery.c.users_count, 0).label('users_count')
     ).outerjoin(today_orders_subquery, Branch.id == today_orders_subquery.c.branch_id)\
      .outerjoin(today_paid_orders_subquery, Branch.id == today_paid_orders_subquery.c.branch_id)\
      .outerjoin(today_unpaid_orders_subquery, Branch.id == today_unpaid_orders_subquery.c.branch_id)\
+     .outerjoin(manual_card_subquery, Branch.id == manual_card_subquery.c.branch_id)\
      .outerjoin(users_subquery, Branch.id == users_subquery.c.branch_id)\
      .filter(Branch.is_active == True)\
      .all()
@@ -112,21 +131,77 @@ def dashboard():
     # Get recent activities across all branches
     recent_orders = Order.query.order_by(Order.created_at.desc()).limit(10).all()
     
+    # Get top cashiers by order edits this week (all branches)
+    week_start = datetime.utcnow() - timedelta(days=7)
+    
+    # Query to get cashiers with their edit counts this week across all branches
+    top_editing_cashiers_query = db.session.query(
+        User.id,
+        User.first_name,
+        User.last_name,
+        User.role,
+        User.branch_id,
+        Branch.name.label('branch_name'),
+        Branch.code.label('branch_code'),
+        func.count(OrderEditHistory.id).label('edit_count')
+    ).join(
+        OrderEditHistory, User.id == OrderEditHistory.edited_by
+    ).join(
+        Order, OrderEditHistory.order_id == Order.id
+    ).outerjoin(
+        Branch, User.branch_id == Branch.id
+    ).filter(
+        User.role == UserRole.CASHIER,
+        OrderEditHistory.edited_at >= week_start
+    )
+    
+    # Group by cashier and order by edit count
+    top_editing_cashiers_raw = top_editing_cashiers_query.group_by(
+        User.id, User.first_name, User.last_name, User.role, User.branch_id, Branch.name, Branch.code
+    ).order_by(
+        func.count(OrderEditHistory.id).desc()
+    ).limit(6).all()
+    
+    # Format the data for the chart
+    top_editing_cashiers = []
+    for cashier in top_editing_cashiers_raw:
+        full_name = f"{cashier.first_name} {cashier.last_name}".strip()
+        if not full_name:
+            full_name = f"Cashier {cashier.id}"
+        
+        # Format role name
+        role_name = cashier.role.name.replace('_', ' ').title() if cashier.role else 'Unknown'
+        
+        # Format branch info
+        branch_info = f"{cashier.branch_name} ({cashier.branch_code})" if cashier.branch_name else 'No Branch'
+        
+        top_editing_cashiers.append({
+            'full_name': full_name,
+            'edit_count': cashier.edit_count,
+            'role_name': role_name,
+            'branch_info': branch_info,
+            'branch_name': cashier.branch_name or 'No Branch',
+            'branch_code': cashier.branch_code or 'N/A'
+        })
+    
     return render_template('superuser/dashboard.html',
                          total_branches=total_branches,
                          total_users=total_users,
                          total_orders_today=total_orders_today,
                          paid_orders_today=paid_orders_today,
                          unpaid_orders_today=unpaid_orders_today,
-                         today_revenue=today_revenue,
+                         today_revenue=today_revenue_with_cards,
                          total_orders_all_time=total_orders_all_time,
                          total_paid_orders=total_paid_orders,
                          total_unpaid_orders=total_unpaid_orders,
-                         total_revenue_all_time=total_revenue_all_time,
+                         total_revenue_all_time=total_revenue_all_time_with_cards,
                          branch_stats=branch_stats,
                          recent_orders=recent_orders,
                          edited_orders_today=edited_orders_today,
-                         total_edited_orders=total_edited_orders)
+                         total_edited_orders=total_edited_orders,
+                         top_editing_cashiers=top_editing_cashiers,
+                         manual_card_total_today=manual_card_total_today,
+                         manual_card_total_all_time=manual_card_total_all_time)
 
 @superuser.route('/branches')
 def branches():

@@ -679,6 +679,24 @@ function attachPaginationListeners() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Check for edit parameter from waiter_requests redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const editOrderId = urlParams.get('edit');
+    const referrer = urlParams.get('from');
+    
+    // Store referrer globally for use in save function
+    window.editReferrer = referrer;
+    
+    if (editOrderId) {
+        // Auto-trigger edit modal for the specified order
+        setTimeout(() => {
+            showAdminPinEditModal(editOrderId);
+        }, 1000); // Wait for page to fully load
+        
+        // Clean up URL but keep referrer info in memory
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
     // Initialize Socket.IO for real-time updates
     const socket = io();
     
@@ -2090,10 +2108,25 @@ function showNotification(message, type = 'info') {
             if (data.success) {
                 showNotification('Order updated successfully!', 'success');
                 
-                // Close modal and refresh orders
+                // Close modal
                 const editModal = bootstrap.Modal.getInstance(document.getElementById('orderEditModal'));
                 editModal.hide();
-                loadOrders(1);
+                
+                // Handle different redirect behaviors based on referrer
+                if (window.editReferrer === 'waiter_requests') {
+                    // Came from waiter_requests - redirect back
+                    setTimeout(() => {
+                        window.location.href = '/pos/waiter_requests';
+                    }, 1500); // Wait for notification to show
+                } else {
+                    // Direct edit from orders page - full page reload to ensure proper table rendering
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500); // Wait for notification to show
+                }
+                
+                // Clear referrer
+                window.editReferrer = null;
             } else {
                 showNotification('Error saving order: ' + data.message, 'error');
             }

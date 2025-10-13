@@ -915,3 +915,80 @@ class WaiterCashierAssignment(db.Model):
             db.session.flush()
             return True
         return False
+
+# Manual Card Payment model for cashier-entered card payments
+class ManualCardPayment(db.Model):
+    __tablename__ = 'manual_card_payments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    date = db.Column(db.Date, nullable=False, default=datetime.utcnow().date)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Branch and cashier information
+    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
+    cashier_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Optional notes
+    notes = db.Column(db.Text)
+    
+    # Relationships
+    branch = db.relationship('Branch', backref='manual_card_payments')
+    cashier = db.relationship('User', backref='manual_card_payments')
+    
+    def __repr__(self):
+        return f'<ManualCardPayment {self.amount} QAR on {self.date} by {self.cashier.get_full_name()}>'
+    
+    @classmethod
+    def get_total_for_date_and_branch(cls, date, branch_id):
+        """Get total manual card payments for a specific date and branch"""
+        total = db.session.query(func.sum(cls.amount)).filter(
+            cls.date == date,
+            cls.branch_id == branch_id
+        ).scalar()
+        return total or 0
+    
+    @classmethod
+    def get_total_for_date_range_and_branch(cls, start_date, end_date, branch_id):
+        """Get total manual card payments for a date range and branch"""
+        total = db.session.query(func.sum(cls.amount)).filter(
+            cls.date >= start_date,
+            cls.date <= end_date,
+            cls.branch_id == branch_id
+        ).scalar()
+        return total or 0
+    
+    @classmethod
+    def get_cashier_entry_for_date(cls, cashier_id, date):
+        """Check if cashier has already entered card payment for today"""
+        return cls.query.filter_by(
+            cashier_id=cashier_id,
+            date=date
+        ).first()
+    
+    @classmethod
+    def add_or_update_payment(cls, cashier_id, branch_id, amount, date=None, notes=None):
+        """Add or update manual card payment for cashier"""
+        if date is None:
+            date = datetime.utcnow().date()
+        
+        # Check if entry already exists for this cashier and date
+        existing = cls.get_cashier_entry_for_date(cashier_id, date)
+        
+        if existing:
+            # Update existing entry
+            existing.amount = amount
+            existing.notes = notes
+            existing.created_at = datetime.utcnow()
+            return existing
+        else:
+            # Create new entry
+            payment = cls(
+                amount=amount,
+                date=date,
+                branch_id=branch_id,
+                cashier_id=cashier_id,
+                notes=notes
+            )
+            db.session.add(payment)
+            return payment

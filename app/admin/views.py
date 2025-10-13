@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, request, jsonify, flash
 from flask_login import login_required, current_user
 from app.admin import admin
-from app.models import User, MenuItem, Category, Order, AuditLog, Table, Customer, UserRole, OrderItem, DeliveryCompany, ServiceType, OrderStatus, TimezoneManager, AdminPinCode, WaiterCashierAssignment
+from app.models import User, MenuItem, Category, Order, AuditLog, Table, Customer, UserRole, OrderItem, DeliveryCompany, ServiceType, OrderStatus, TimezoneManager, AdminPinCode, WaiterCashierAssignment, OrderEditHistory, ManualCardPayment
 from app import db
 from app.auth.decorators import branch_admin_required, filter_by_user_branch, get_user_branch_filter
 from datetime import datetime, timedelta
@@ -57,6 +57,27 @@ def dashboard():
     if branch_filter:
         revenue_query = revenue_query.filter(Order.branch_id == branch_filter)
     total_revenue = revenue_query.scalar() or 0
+    
+    # Include manual card payments in revenue calculations
+    manual_card_total_today = 0
+    manual_card_total_all_time = 0
+    
+    if branch_filter:
+        # For branch admin, get manual card payments for their branch
+        manual_card_total_today = ManualCardPayment.get_total_for_date_and_branch(today, branch_filter)
+        manual_card_total_all_time = ManualCardPayment.get_total_for_date_range_and_branch(
+            datetime(2020, 1, 1).date(), today, branch_filter
+        )
+    else:
+        # For super user accessing admin dashboard, get all manual card payments
+        manual_card_total_today = db.session.query(func.sum(ManualCardPayment.amount)).filter(
+            ManualCardPayment.date == today
+        ).scalar() or 0
+        manual_card_total_all_time = db.session.query(func.sum(ManualCardPayment.amount)).scalar() or 0
+    
+    # Update totals to include manual card payments
+    today_sales_with_cards = today_sales + manual_card_total_today
+    total_revenue_with_cards = total_revenue + manual_card_total_all_time
     
     # Recent orders (branch-filtered)
     orders_query = filter_by_user_branch(Order.query, Order)
@@ -180,6 +201,49 @@ def dashboard():
         from app.models import Branch
         branch_info = Branch.query.get(current_user.branch_id)
     
+    # Get top cashiers by order edits this week (branch-filtered)
+    week_start = datetime.utcnow() - timedelta(days=7)
+    
+    # Query to get cashiers with their edit counts this week
+    top_editing_cashiers_query = db.session.query(
+        User.id,
+        User.first_name,
+        User.last_name,
+        func.count(OrderEditHistory.id).label('edit_count')
+    ).join(
+        OrderEditHistory, User.id == OrderEditHistory.edited_by
+    ).join(
+        Order, OrderEditHistory.order_id == Order.id
+    ).filter(
+        User.role == UserRole.CASHIER,
+        OrderEditHistory.edited_at >= week_start
+    )
+    
+    # Apply branch filtering for admin users
+    if current_user.role == UserRole.BRANCH_ADMIN and current_user.branch_id:
+        top_editing_cashiers_query = top_editing_cashiers_query.filter(
+            User.branch_id == current_user.branch_id
+        )
+    
+    # Group by cashier and order by edit count
+    top_editing_cashiers_raw = top_editing_cashiers_query.group_by(
+        User.id, User.first_name, User.last_name
+    ).order_by(
+        func.count(OrderEditHistory.id).desc()
+    ).limit(6).all()
+    
+    # Format the data for the chart
+    top_editing_cashiers = []
+    for cashier in top_editing_cashiers_raw:
+        full_name = f"{cashier.first_name} {cashier.last_name}".strip()
+        if not full_name:
+            full_name = f"Cashier {cashier.id}"
+        
+        top_editing_cashiers.append({
+            'full_name': full_name,
+            'edit_count': cashier.edit_count
+        })
+    
     return render_template('admin/dashboard.html',
                           total_orders=total_orders,
                           total_paid_orders=total_paid_orders,
@@ -187,8 +251,8 @@ def dashboard():
                           today_orders=today_orders,
                           today_paid_orders=today_paid_orders,
                           today_unpaid_orders=today_unpaid_orders,
-                          today_sales=today_sales,
-                          total_revenue=total_revenue,
+                          today_sales=today_sales_with_cards,
+                          total_revenue=total_revenue_with_cards,
                           recent_orders=recent_orders,
                           recent_logs=recent_logs,
                           daily_sales=daily_sales,
@@ -196,7 +260,10 @@ def dashboard():
                           waiter_stats=waiter_stats,
                           branch_info=branch_info,
                           edited_orders_today=edited_orders_today,
-                          total_edited_orders=total_edited_orders)
+                          total_edited_orders=total_edited_orders,
+                          top_editing_cashiers=top_editing_cashiers,
+                          manual_card_total_today=manual_card_total_today,
+                          manual_card_total_all_time=manual_card_total_all_time)
 
 @admin.route('/users')
 def users():

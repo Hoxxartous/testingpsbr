@@ -117,7 +117,7 @@
                             <label class="form-label fw-bold">Status Filter</label>
                             <select class="form-select" id="statusFilterSelect">
                                 <option value="all">All Orders</option>
-                                <option value="pending">Pending Only</option>
+                                <option value="pending" selected>Pending Only</option>
                                 <option value="paid">Paid Only</option>
                             </select>
                         </div>
@@ -221,6 +221,7 @@
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block styles %}
@@ -354,6 +355,66 @@
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
+// Sound generation functions
+function playNewRequestSound() {
+    // Create audio context
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Create oscillator for a pleasant notification sound
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    // Connect nodes
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Configure sound - pleasant bell-like tone
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // High note
+    oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1); // Lower note
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2); // High note again
+    
+    // Configure volume envelope
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+    gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.15);
+    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.25);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.4);
+    
+    // Play sound
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.4);
+}
+
+function playOrderEditedSound() {
+    // Create audio context
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Create oscillator for edit notification sound
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    // Connect nodes
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Configure sound - gentle notification tone
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(500, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(700, audioContext.currentTime + 0.15);
+    
+    // Configure volume envelope
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
+    gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+    gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.2);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
+    
+    // Play sound
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Socket.IO for real-time updates
     const socket = io();
@@ -386,6 +447,14 @@ document.addEventListener('DOMContentLoaded', function() {
         {% if current_user.role.name == 'CASHIER' %}
             // ISOLATION GUARANTEE: This event only reaches cashiers who are assigned the order
             // No need to check branch_id or cashier assignment - the room isolation handles it
+            
+            // Play notification sound for cashier
+            try {
+                playNewRequestSound();
+            } catch (error) {
+                console.log('Could not play sound:', error);
+            }
+            
             showNotification(`New order #${data.order_number} from ${data.creator_name} - Table ${data.table_number}`, 'info');
             
             // Add the new order to the top of the grid with animation
@@ -406,13 +475,13 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Order paid event received:', data);
         
         if (data.branch_id === {{ current_user.branch_id }}) {
-            // Update the specific order card
-            updateOrderCard(data.order_id, 'paid');
+            // Remove the order card from the page since it's now paid
+            removeOrderCard(data.order_id);
             
-            // Update statistics
+            // Update statistics with AJAX call
             updateStatistics();
             
-            showNotification(`Order for Table ${data.table_number} has been paid`, 'success');
+            showNotification(`Order for Table ${data.table_number} has been paid and removed from waiter requests`, 'success');
         }
     });
     
@@ -622,6 +691,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const editMarker = order.is_edited ? 
             '<span class="badge bg-info edit-marker" title="Order has been edited"><i class="bi bi-pencil-square"></i> Edited</span>' : '';
         
+        const editButton = order.can_edit ? 
+            `<button class="btn btn-warning btn-sm edit-order-btn" data-order-id="${order.id}" title="Edit Order (Admin PIN Required)">
+                <i class="bi bi-pencil-square"></i> Edit
+            </button>` : '';
+        
         const markPaidButton = order.can_mark_paid ? 
             `<button class="btn btn-success btn-sm mark-paid-btn" data-order-id="${order.id}">
                 <i class="bi bi-check-circle"></i> Mark Paid
@@ -670,6 +744,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button class="btn btn-outline-primary btn-sm view-order-btn" data-order-id="${order.id}">
                             <i class="bi bi-eye"></i> View
                         </button>
+                        ${editButton}
                         ${markPaidButton}
                     </div>
                 </div>
@@ -681,6 +756,13 @@ document.addEventListener('DOMContentLoaded', function() {
         viewBtn.addEventListener('click', function() {
             viewOrderDetails(order.id);
         });
+        
+        const editBtn = col.querySelector('.edit-order-btn');
+        if (editBtn) {
+            editBtn.addEventListener('click', function() {
+                showAdminPinEditModal(order.id);
+            });
+        }
         
         const markPaidBtn = col.querySelector('.mark-paid-btn');
         if (markPaidBtn) {
@@ -695,6 +777,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to update statistics
     function updateStatistics(stats = null) {
         if (stats) {
+            // Update UI with provided stats
             document.getElementById('totalOrdersCount').textContent = stats.total;
             document.getElementById('paidOrdersCount').textContent = stats.paid;
             document.getElementById('pendingOrdersCount').textContent = stats.pending;
@@ -716,6 +799,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     clearBtn.innerHTML = '<i class="bi bi-trash"></i> No Orders';
                 }
             }
+        } else {
+            // Fetch fresh stats via AJAX
+            const params = new URLSearchParams({
+                page: 1,
+                per_page: 1, // We only need stats, not orders
+                status_filter: 'all' // Get all stats
+            });
+            
+            fetch(`/pos/waiter_requests?${params.toString()}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.stats) {
+                    updateStatistics(data.stats); // Recursive call with stats
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching statistics:', error);
+            });
         }
     }
     
@@ -746,6 +851,49 @@ document.addEventListener('DOMContentLoaded', function() {
                     markPaidBtn.remove();
                 }
             }
+        }
+    }
+
+    // Function to remove order card from the page (when paid)
+    function removeOrderCard(orderId) {
+        const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
+        if (orderCard) {
+            // Add fade out animation
+            orderCard.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+            orderCard.style.opacity = '0';
+            orderCard.style.transform = 'translateX(100%)';
+            
+            // Remove from DOM after animation
+            setTimeout(() => {
+                const cardColumn = orderCard.closest('.col-md-6, .col-lg-4, .col-xl-3');
+                if (cardColumn) {
+                    cardColumn.remove();
+                } else {
+                    orderCard.remove();
+                }
+                
+                // Update currentOrders array
+                currentOrders = currentOrders.filter(order => order.id !== parseInt(orderId));
+                
+                // Check if no orders left and show empty state
+                checkEmptyState();
+            }, 500);
+        }
+    }
+
+    // Function to check and show empty state if no orders
+    function checkEmptyState() {
+        const ordersContainer = document.getElementById('ordersContainer');
+        if (currentOrders.length === 0) {
+            ordersContainer.innerHTML = `
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="bi bi-inbox display-1 text-muted"></i>
+                        <h4 class="text-muted mt-3">No Waiter Requests</h4>
+                        <p class="text-muted">All orders have been processed or there are no pending waiter requests.</p>
+                    </div>
+                </div>
+            `;
         }
     }
     
@@ -787,8 +935,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showNotification(data.message, 'success');
-                updateOrderCard(orderId, 'paid');
+                showNotification(data.message + ' - Order removed from waiter requests', 'success');
+                removeOrderCard(orderId);
                 updateStatistics();
             } else {
                 showNotification('Error marking order as paid: ' + data.message, 'error');
@@ -1026,14 +1174,14 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showNotification(data.message, 'success');
+                showNotification(data.message + ' - Order removed from waiter requests', 'success');
                 
                 // Close modal
                 const modal = bootstrap.Modal.getInstance(document.getElementById('orderDetailsModal'));
                 modal.hide();
                 
-                // Update order card and statistics
-                updateOrderCard(orderId, 'paid');
+                // Remove order card and update statistics
+                removeOrderCard(orderId);
                 updateStatistics();
             } else {
                 showNotification('Error marking order as paid: ' + data.message, 'error');
@@ -1091,6 +1239,7 @@ document.addEventListener('DOMContentLoaded', function() {
             creator_name: orderData.creator_name,
             items_count: orderData.items_count || 0,
             can_mark_paid: true,
+            can_edit: true, // Enable edit button for new pending orders
             edit_count: 0,
             last_edited_at: null,
             last_edited_by: null,
@@ -1135,6 +1284,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 notification.remove();
             }
         }, 5000);
+    }
+    
+    // Simple redirect to orders page for editing
+    function showAdminPinEditModal(orderId) {
+        // Redirect to orders page with edit parameter and referrer
+        window.location.href = `/pos/orders?edit=${orderId}&from=waiter_requests`;
     }
 });
 </script>

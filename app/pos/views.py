@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from flask_socketio import join_room, leave_room
 from app.pos import pos
 from app.models import (
-    User, MenuItem, Category, Order, AuditLog, Table, Customer, UserRole, OrderItem, DeliveryCompany, ServiceType, OrderStatus, PaymentMethod, TimezoneManager, AdminPinCode, WaiterCashierAssignment, OrderEditHistory, CashierUiPreference, CashierUiSetting, OrderCounter, CashierPin, CashierSession
+    User, MenuItem, Category, Order, AuditLog, Table, Customer, UserRole, OrderItem, DeliveryCompany, ServiceType, OrderStatus, PaymentMethod, TimezoneManager, AdminPinCode, WaiterCashierAssignment, OrderEditHistory, CashierUiPreference, CashierUiSetting, OrderCounter, CashierPin, CashierSession, ManualCardPayment
 )
 from app import db, socketio
 from app.auth.decorators import cashier_or_above_required, pos_access_required, filter_by_user_branch
@@ -744,14 +744,50 @@ def dashboard():
             'pending_orders': pending_waiter_orders
         }
     
+    # Get manual card payment for today (for cashiers only)
+    manual_card_payment_today = None
+    if current_user.role == UserRole.CASHIER:
+        manual_card_payment_today = ManualCardPayment.get_cashier_entry_for_date(
+            current_user.id, today
+        )
+    
+    # Include manual card payments in revenue calculations
+    manual_card_total_today = 0
+    manual_card_total_all_time = 0
+    
+    if current_user.role == UserRole.CASHIER:
+        # For cashiers, only their own manual card payments
+        manual_card_total_today = ManualCardPayment.get_total_for_date_and_branch(today, current_user.branch_id)
+        manual_card_total_all_time = ManualCardPayment.get_total_for_date_range_and_branch(
+            datetime(2020, 1, 1).date(), today, current_user.branch_id
+        )
+    elif current_user.role in [UserRole.BRANCH_ADMIN, UserRole.SUPER_USER]:
+        # For admins, all manual card payments in their scope
+        if current_user.role == UserRole.BRANCH_ADMIN:
+            manual_card_total_today = ManualCardPayment.get_total_for_date_and_branch(today, current_user.branch_id)
+            manual_card_total_all_time = ManualCardPayment.get_total_for_date_range_and_branch(
+                datetime(2020, 1, 1).date(), today, current_user.branch_id
+            )
+        else:  # SUPER_USER
+            manual_card_total_today = db.session.query(func.sum(ManualCardPayment.amount)).filter(
+                ManualCardPayment.date == today
+            ).scalar() or 0
+            manual_card_total_all_time = db.session.query(func.sum(ManualCardPayment.amount)).scalar() or 0
+    
+    # Update totals to include manual card payments
+    today_sales_with_cards = today_sales + manual_card_total_today
+    total_revenue_with_cards = total_revenue + manual_card_total_all_time
+    
     return render_template('pos/dashboard.html',
                           total_orders=total_orders,
-                          today_sales=today_sales,
+                          today_sales=today_sales_with_cards,
                           today_orders=today_orders,
-                          total_revenue=total_revenue,
+                          total_revenue=total_revenue_with_cards,
                           recent_orders=recent_orders,
                           daily_sales=daily_sales_serializable,
-                          waiter_stats=waiter_stats)
+                          waiter_stats=waiter_stats,
+                          manual_card_payment_today=manual_card_payment_today,
+                          manual_card_total_today=manual_card_total_today)
 
 @pos.route('/daily_report')
 @login_required
@@ -2155,7 +2191,7 @@ def waiter_requests():
         per_page = request.args.get('per_page', 25, type=int)
         sort_by = request.args.get('sort_by', 'created_at')
         sort_order = request.args.get('sort_order', 'desc')
-        status_filter = request.args.get('status_filter', 'all')
+        status_filter = request.args.get('status_filter', 'pending')
         
         # Build query for waiter orders only (exclude cleared orders)
         if current_user.role == UserRole.SUPER_USER:
@@ -2178,10 +2214,14 @@ def waiter_requests():
                 Order.cleared_from_waiter_requests == False
             )
         
-        # Apply status filter
+        # Apply status filter - default to pending only for waiter requests
         if status_filter == 'paid':
             query = query.filter(Order.status == OrderStatus.PAID)
-        elif status_filter == 'pending':
+        elif status_filter == 'all':
+            # Only show all if explicitly requested
+            pass
+        else:
+            # Default: only show pending orders (paid orders should not appear)
             query = query.filter(Order.status == OrderStatus.PENDING)
         
         # Apply sorting
@@ -2227,6 +2267,9 @@ def waiter_requests():
                 'creator_name': creator_name,
                 'items_count': items_count,
                 'can_mark_paid': order.status == OrderStatus.PENDING,
+                'can_edit': (current_user.role == UserRole.CASHIER and 
+                           (order.cashier_id == current_user.id or order.assigned_cashier_id == current_user.id) and
+                           order.status == OrderStatus.PENDING),  # Only allow editing pending on-table orders
                 'edit_count': order.edit_count or 0,
                 'last_edited_at': order.last_edited_at.strftime('%Y-%m-%d %H:%M') if order.last_edited_at else None,
                 'last_edited_by': User.query.get(order.last_edited_by).get_full_name() if order.last_edited_by else None,
@@ -3399,6 +3442,44 @@ def verify_admin_pin_for_editing():
             
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
+
+@pos.route('/manual_card_payment', methods=['POST'])
+@login_required
+def manual_card_payment():
+    """Handle manual card payment entry by cashiers"""
+    if current_user.role != UserRole.CASHIER:
+        return jsonify({'success': False, 'error': 'Access denied. Only cashiers can enter manual card payments.'})
+    
+    try:
+        data = request.get_json()
+        amount = float(data.get('amount', 0))
+        notes = data.get('notes', '').strip()
+        
+        if amount <= 0:
+            return jsonify({'success': False, 'error': 'Amount must be greater than 0'})
+        
+        # Add or update manual card payment
+        payment = ManualCardPayment.add_or_update_payment(
+            cashier_id=current_user.id,
+            branch_id=current_user.branch_id,
+            amount=amount,
+            notes=notes
+        )
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Manual card payment of {amount:.2f} QAR saved successfully',
+            'payment_id': payment.id,
+            'amount': float(payment.amount)
+        })
+        
+    except ValueError:
+        return jsonify({'success': False, 'error': 'Invalid amount format'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 def generate_order_number():
     """Generate a unique order number using configured timezone"""

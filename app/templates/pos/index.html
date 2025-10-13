@@ -570,24 +570,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-3 col-6">
-                                    <div class="service-option {% if current_user.role.value == 'waiter' %}disabled{% endif %}" data-service="card">
-                                        <div class="card h-100 border-2 service-card {% if current_user.role.value == 'waiter' %}disabled-card{% endif %}">
-                                            <div class="card-body text-center p-3">
-                                                <i class="bi bi-credit-card display-6 text-success mb-2"></i>
-                                                <h6 class="card-title mb-0">Card Payment</h6>
-                                                <small class="text-muted">Paid by Card</small>
-                                                {% if current_user.role.value == 'waiter' %}
-                                                    <div class="mt-1">
-                                                        <span class="badge bg-danger">
-                                                            <i class="bi bi-lock-fill"></i> Waiter Restricted
-                                                        </span>
-                                                    </div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -4465,9 +4447,6 @@ function loadRecentOrders() {
                         case 'delivery':
                             serviceBadge = { class: 'bg-info', text: 'Delivery' };
                             break;
-                        case 'card':
-                            serviceBadge = { class: 'bg-success', text: 'Card Payment' };
-                            break;
                         default:
                             serviceBadge = { class: 'bg-secondary', text: order.service_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) };
                     }
@@ -4588,8 +4567,7 @@ function initializeServiceTypeSelection() {
             const serviceNames = {
                 'on_table': 'On Table',
                 'take_away': 'Take Away',
-                'delivery': 'Delivery',
-                'card': 'Card Payment'
+                'delivery': 'Delivery'
             };
             document.getElementById('selectedServiceType').textContent = serviceNames[selectedServiceType];
             
@@ -4748,9 +4726,6 @@ function printOrderDirectly(orderId) {
                             break;
                         case 'delivery':
                             serviceDisplay = '🚚 DELIVERY';
-                            break;
-                        case 'card':
-                            serviceDisplay = '💳 CARD PAYMENT';
                             break;
                         default:
                             serviceDisplay = data.order.service_type.replace('_', ' ').toUpperCase();

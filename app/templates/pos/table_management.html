@@ -278,12 +278,53 @@
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Socket.IO for real-time updates
-    const socket = io();
+// Sound generation function for order edit notifications
+function playOrderEditedSound() {
+    // Create audio context
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     
+    // Create oscillator for edit notification sound
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    // Connect nodes
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Configure sound - gentle notification tone
+    oscillator.type = 'triangle';
+    oscillator.frequency.setValueAtTime(500, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(700, audioContext.currentTime + 0.15);
+    
+    // Configure volume envelope
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
+    gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.1);
+    gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.2);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.3);
+    
+    // Play sound
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Use global socket connection from base template
     // Store branch ID for JavaScript comparisons
     const currentBranchId = {{ current_user.branch_id }};
+    
+    // Wait for global socket to be available
+    function setupTableManagementListeners() {
+        if (typeof socket !== 'undefined' && socket && socket.connected) {
+            console.log('Setting up table management listeners with global socket');
+            setupSocketListeners();
+        } else {
+            // Retry after a short delay
+            setTimeout(setupTableManagementListeners, 100);
+        }
+    }
+    
+    function setupSocketListeners() {
     
     // Join branch room for real-time updates
     socket.emit('join', {room: 'branch_{{ current_user.branch_id }}'});
@@ -314,6 +355,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Check if this affects our branch
         if (data.branch_id === currentBranchId) {
+            // Play notification sound for waiter
+            try {
+                playOrderEditedSound();
+            } catch (error) {
+                console.log('Could not play sound:', error);
+            }
+            
             markTableOrderAsEdited(data.table_id, data.order_id, data.editor_name, data.edit_summary);
             showNotification(`Order #${data.order_number} on Table ${data.table_number} was edited by ${data.editor_name}`, 'warning');
         }
@@ -670,6 +718,11 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
     }
+    
+    } // Close setupSocketListeners function
+    
+    // Start setting up listeners
+    setupTableManagementListeners();
     
 });
 </script>

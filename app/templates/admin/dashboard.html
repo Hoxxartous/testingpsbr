@@ -203,6 +203,22 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Top Cashiers - Order Edits (This Week)</h5>
+                <a href="{{ url_for('admin.cashier_performance') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-person-badge"></i> View Performance
+                </a>
+            </div>
+            <div class="card-body">
+                <canvas id="cashierEditsChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Top Selling Items</h5>
                 <a href="{{ url_for('admin.menu') }}" class="btn btn-sm btn-outline-primary">
                     <i class="bi bi-list"></i> View Menu
@@ -343,6 +359,65 @@ document.addEventListener('DOMContentLoaded', function() {
             scales: {
                 y: {
                     beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Cashier Edits Chart
+    const editsCtx = document.getElementById('cashierEditsChart').getContext('2d');
+    const cashierEditsChart = new Chart(editsCtx, {
+        type: 'bar',
+        data: {
+            labels: [
+                {% for cashier in top_editing_cashiers %}
+                '{{ cashier.full_name }}',
+                {% endfor %}
+            ],
+            datasets: [{
+                label: 'Order Edits This Week',
+                data: [
+                    {% for cashier in top_editing_cashiers %}
+                    {{ cashier.edit_count }},
+                    {% endfor %}
+                ],
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.8)',
+                    'rgba(54, 162, 235, 0.8)',
+                    'rgba(255, 205, 86, 0.8)',
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(153, 102, 255, 0.8)',
+                    'rgba(255, 159, 64, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(255, 99, 132, 1)',
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 205, 86, 1)',
+                    'rgba(75, 192, 192, 1)',
+                    'rgba(153, 102, 255, 1)',
+                    'rgba(255, 159, 64, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Top Cashiers by Order Edits (Current Week)'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
                 }
             }
         }
