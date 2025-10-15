@@ -2,7 +2,7 @@ import multiprocessing
 import os
 
 # Server socket configuration
-bind = "0.0.0.0:" + str(os.environ.get('PORT', 8000))
+bind = "0.0.0.0:" + str(os.environ.get('PORT', 8080))
 backlog = 2048
 
 # Optimized for Render FREE PLAN - very limited resources
