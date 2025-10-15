@@ -32,7 +32,7 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Expose port
-EXPOSE 5000
+EXPOSE 8080
 
 # Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--worker-class", "eventlet", "--timeout", "120", "--preload", "--max-requests", "1000", "--max-requests-jitter", "50", "wsgi:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--worker-class", "eventlet", "--timeout", "120", "--preload", "--max-requests", "1000", "--max-requests-jitter", "50", "wsgi:app"]
