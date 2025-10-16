@@ -79,6 +79,10 @@ def dashboard():
     today_sales_with_cards = today_sales + manual_card_total_today
     total_revenue_with_cards = total_revenue + manual_card_total_all_time
     
+    # Calculate cash amounts (total revenue - card payments)
+    today_cash_amount = today_sales  # This is from orders only (cash payments)
+    total_cash_amount = total_revenue  # This is from orders only (cash payments)
+    
     # Recent orders (branch-filtered)
     orders_query = filter_by_user_branch(Order.query, Order)
     recent_orders = orders_query.order_by(Order.created_at.desc()).limit(10).all()
@@ -263,10 +267,17 @@ def dashboard():
                           total_edited_orders=total_edited_orders,
                           top_editing_cashiers=top_editing_cashiers,
                           manual_card_total_today=manual_card_total_today,
-                          manual_card_total_all_time=manual_card_total_all_time)
+                          manual_card_total_all_time=manual_card_total_all_time,
+                          today_cash_amount=today_cash_amount,
+                          total_cash_amount=total_cash_amount)
 
 @admin.route('/users')
 def users():
+    """View users from admin's branch with filtering"""
+    # Get filter parameters
+    role = request.args.get('role')
+    status = request.args.get('status')
+    
     # Get branch-specific users using helper function
     users_query = filter_by_user_branch(User.query, User)
     
@@ -274,29 +285,44 @@ def users():
     if current_user.role == UserRole.BRANCH_ADMIN:
         users_query = users_query.filter(User.role != UserRole.SUPER_USER)
     
-    users = users_query.all()
+    # Apply filters
+    if role and role != 'all':
+        users_query = users_query.filter(User.role == UserRole[role.upper()])
     
-    # Determine user permissions
-    can_manage_users = current_user.role == UserRole.SUPER_USER
-    can_view_only = current_user.role == UserRole.BRANCH_ADMIN
+    if status and status != 'all':
+        if status == 'active':
+            users_query = users_query.filter(User.is_active == True)
+        elif status == 'inactive':
+            users_query = users_query.filter(User.is_active == False)
     
-    # Get branches for super users
+    users = users_query.order_by(User.created_at.desc()).all()
+    
+    # Determine user permissions - now branch admins can also manage users
+    can_manage_users = current_user.role in [UserRole.SUPER_USER, UserRole.BRANCH_ADMIN]
+    can_view_only = False  # Both super users and branch admins can manage users
+    
+    # Get branches for super users, current branch for branch admins
     branches = []
     if current_user.role == UserRole.SUPER_USER:
         from app.models import Branch
         branches = Branch.query.filter_by(is_active=True).all()
+    elif current_user.role == UserRole.BRANCH_ADMIN:
+        from app.models import Branch
+        branches = [current_user.branch] if current_user.branch else []
     
     return render_template('admin/users.html', 
                          users=users, 
                          can_manage_users=can_manage_users,
                          can_view_only=can_view_only,
-                         branches=branches)
+                         branches=branches,
+                         current_role=role,
+                         current_status=status)
 
 @admin.route('/create_user', methods=['POST'])
 def create_user():
-    # Only super admins can create users
-    if current_user.role != UserRole.SUPER_USER:
-        return jsonify({'success': False, 'message': 'Access denied. Super admin privileges required.'}), 403
+    # Both super admins and branch admins can create users
+    if current_user.role not in [UserRole.SUPER_USER, UserRole.BRANCH_ADMIN]:
+        return jsonify({'success': False, 'message': 'Access denied. Admin privileges required.'}), 403
     try:
         # Get user data from request
         data = request.get_json()
@@ -315,14 +341,24 @@ def create_user():
         if existing_user:
             return jsonify({'success': False, 'message': 'Username or email already exists'}), 400
         
-        # Create new user
+        # Create new user - branch admins can only create users in their branch
+        if current_user.role == UserRole.BRANCH_ADMIN:
+            # Branch admin can only create users in their own branch
+            branch_id = current_user.branch_id
+            # Branch admin cannot create super users or other branch admins
+            if data['role'] in ['super_user', 'branch_admin']:
+                return jsonify({'success': False, 'message': 'Branch admins cannot create super users or other branch admins'}), 403
+        else:
+            # Super user can create users in any branch
+            branch_id = data.get('branch_id', current_user.branch_id)
+        
         user = User(
             username=data['username'],
             email=data['email'],
             first_name=data['first_name'],
             last_name=data['last_name'],
             role=UserRole(data['role']),
-            branch_id=current_user.branch_id if not current_user.is_super_user() else data.get('branch_id', current_user.branch_id)
+            branch_id=branch_id
         )
         user.set_password(data['password'])
         
@@ -351,9 +387,9 @@ def create_user():
 
 @admin.route('/update_user/<int:user_id>', methods=['POST'])
 def update_user(user_id):
-    # Only super admins can update users
-    if current_user.role != UserRole.SUPER_USER:
-        return jsonify({'success': False, 'message': 'Access denied. Super admin privileges required.'}), 403
+    # Both super admins and branch admins can update users
+    if current_user.role not in [UserRole.SUPER_USER, UserRole.BRANCH_ADMIN]:
+        return jsonify({'success': False, 'message': 'Access denied. Admin privileges required.'}), 403
     try:
         # Get user data from request
         data = request.get_json()
@@ -361,12 +397,34 @@ def update_user(user_id):
         # Find user
         user = User.query.get_or_404(user_id)
         
-        # Prevent modifying super users
-        if user.role == UserRole.SUPER_USER:
-            return jsonify({'success': False, 'message': 'Cannot modify super users'}), 403
+        # Branch admins can only modify users in their own branch
+        if current_user.role == UserRole.BRANCH_ADMIN:
+            if user.branch_id != current_user.branch_id:
+                return jsonify({'success': False, 'message': 'Access denied. You can only modify users in your branch.'}), 403
+            # Branch admins cannot modify super users or other branch admins
+            if user.role in [UserRole.SUPER_USER, UserRole.BRANCH_ADMIN]:
+                return jsonify({'success': False, 'message': 'Branch admins cannot modify super users or other branch admins'}), 403
         
-        # Update user fields (restricted for data preservation)
-        # Username and names cannot be changed to preserve data integrity
+        # Prevent modifying super users (for super users editing other super users)
+        if user.role == UserRole.SUPER_USER and user.id != current_user.id:
+            return jsonify({'success': False, 'message': 'Cannot modify other super users'}), 403
+        
+        # Update user fields - both super users and branch admins can edit basic fields
+        if 'username' in data:
+            # Check if username already exists for another user
+            existing_user = User.query.filter(
+                User.username == data['username'],
+                User.id != user_id
+            ).first()
+            if existing_user:
+                return jsonify({'success': False, 'message': 'Username already exists'}), 400
+            user.username = data['username']
+        
+        if 'first_name' in data:
+            user.first_name = data['first_name']
+            
+        if 'last_name' in data:
+            user.last_name = data['last_name']
         
         if 'email' in data:
             # Check if email already exists for another user
@@ -379,12 +437,29 @@ def update_user(user_id):
             user.email = data['email']
             
         if 'role' in data:
+            # Branch admins cannot change roles to super_user or branch_admin
+            if current_user.role == UserRole.BRANCH_ADMIN:
+                if data['role'] in ['super_user', 'branch_admin']:
+                    return jsonify({'success': False, 'message': 'Branch admins cannot assign super user or branch admin roles'}), 403
             user.role = UserRole(data['role'])
             
         if 'branch_id' in data:
+            # Branch admins cannot move users to other branches
+            if current_user.role == UserRole.BRANCH_ADMIN:
+                if int(data['branch_id']) != current_user.branch_id:
+                    return jsonify({'success': False, 'message': 'Branch admins cannot move users to other branches'}), 403
             user.branch_id = data['branch_id']
             
         if 'is_active' in data:
+            # Check if trying to activate a user from an inactive branch
+            if data['is_active'] and not user.is_active and user.branch_id:
+                from app.models import Branch
+                branch = Branch.query.get(user.branch_id)
+                if branch and not branch.is_active:
+                    return jsonify({
+                        'success': False, 
+                        'message': f'Cannot activate user from inactive branch "{branch.name}". Please reactivate the branch first.'
+                    }), 400
             user.is_active = data['is_active']
             
         if 'password' in data and data['password']:
@@ -414,9 +489,9 @@ def update_user(user_id):
 
 @admin.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
-    # Only super admins can manage user status
-    if current_user.role != UserRole.SUPER_USER:
-        return jsonify({'success': False, 'message': 'Access denied. Super admin privileges required.'}), 403
+    # Both super admins and branch admins can manage user status
+    if current_user.role not in [UserRole.SUPER_USER, UserRole.BRANCH_ADMIN]:
+        return jsonify({'success': False, 'message': 'Access denied. Admin privileges required.'}), 403
     try:
         # Find user
         user = User.query.get_or_404(user_id)
@@ -425,9 +500,27 @@ def delete_user(user_id):
         if user.id == current_user.id:
             return jsonify({'success': False, 'message': 'Cannot modify yourself'}), 400
         
-        # Prevent modifying super users
-        if user.role == UserRole.SUPER_USER:
-            return jsonify({'success': False, 'message': 'Cannot modify super users'}), 403
+        # Branch admins can only modify users in their own branch
+        if current_user.role == UserRole.BRANCH_ADMIN:
+            if user.branch_id != current_user.branch_id:
+                return jsonify({'success': False, 'message': 'Access denied. You can only modify users in your branch.'}), 403
+            # Branch admins cannot modify super users or other branch admins
+            if user.role in [UserRole.SUPER_USER, UserRole.BRANCH_ADMIN]:
+                return jsonify({'success': False, 'message': 'Branch admins cannot modify super users or other branch admins'}), 403
+        
+        # Prevent modifying super users (for super users editing other super users)
+        if user.role == UserRole.SUPER_USER and user.id != current_user.id:
+            return jsonify({'success': False, 'message': 'Cannot modify other super users'}), 403
+        
+        # Check if trying to activate a user from an inactive branch
+        if not user.is_active and user.branch_id:  # User is currently inactive and has a branch
+            from app.models import Branch
+            branch = Branch.query.get(user.branch_id)
+            if branch and not branch.is_active:
+                return jsonify({
+                    'success': False, 
+                    'message': f'Cannot activate user from inactive branch "{branch.name}". Please reactivate the branch first.'
+                }), 400
         
         # Toggle user active status instead of deleting
         user.is_active = not user.is_active
@@ -442,13 +535,102 @@ def delete_user(user_id):
 
 @admin.route('/users/add', methods=['GET', 'POST'])
 def add_user():
-    """Add user endpoint - restricted to super users only"""
-    if current_user.role != UserRole.SUPER_USER:
-        flash('Access denied. Only super users can add users.', 'error')
+    """Add user endpoint - available for both super users and branch admins"""
+    if current_user.role not in [UserRole.SUPER_USER, UserRole.BRANCH_ADMIN]:
+        flash('Access denied. Admin privileges required.', 'error')
         return redirect(url_for('admin.users'))
     
-    # This should redirect to superuser add_user for actual functionality
-    return redirect(url_for('superuser.add_user'))
+    if request.method == 'POST':
+        # Check if this is an AJAX request
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json'
+        
+        try:
+            # Validate password confirmation
+            password = request.form.get('password')
+            confirm_password = request.form.get('confirm_password')
+            
+            if password != confirm_password:
+                error_msg = 'Passwords do not match!'
+                if is_ajax:
+                    return jsonify({'success': False, 'message': error_msg}), 400
+                flash(error_msg, 'error')
+                branches = [current_user.branch] if current_user.role == UserRole.BRANCH_ADMIN else Branch.query.filter_by(is_active=True).all()
+                return render_template('admin/add_user.html', branches=branches, roles=UserRole)
+            
+            # Check if username already exists
+            existing_user = User.query.filter_by(username=request.form.get('username')).first()
+            if existing_user:
+                error_msg = 'Username already exists!'
+                if is_ajax:
+                    return jsonify({'success': False, 'message': error_msg}), 400
+                flash(error_msg, 'error')
+                branches = [current_user.branch] if current_user.role == UserRole.BRANCH_ADMIN else Branch.query.filter_by(is_active=True).all()
+                return render_template('admin/add_user.html', branches=branches, roles=UserRole)
+            
+            # Check if email already exists
+            existing_email = User.query.filter_by(email=request.form.get('email')).first()
+            if existing_email:
+                error_msg = 'Email already exists!'
+                if is_ajax:
+                    return jsonify({'success': False, 'message': error_msg}), 400
+                flash(error_msg, 'error')
+                branches = [current_user.branch] if current_user.role == UserRole.BRANCH_ADMIN else Branch.query.filter_by(is_active=True).all()
+                return render_template('admin/add_user.html', branches=branches, roles=UserRole)
+            
+            # Get role and validate for branch admins
+            role_str = request.form.get('role').upper()
+            if current_user.role == UserRole.BRANCH_ADMIN:
+                if role_str in ['SUPER_USER', 'BRANCH_ADMIN']:
+                    error_msg = 'Branch admins cannot create super users or other branch admins!'
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': error_msg}), 400
+                    flash(error_msg, 'error')
+                    branches = [current_user.branch]
+                    return render_template('admin/add_user.html', branches=branches, roles=UserRole)
+            
+            # Determine branch_id
+            if current_user.role == UserRole.BRANCH_ADMIN:
+                branch_id = current_user.branch_id  # Branch admin can only create users in their branch
+            else:
+                branch_id = int(request.form.get('branch_id')) if request.form.get('branch_id') else None
+            
+            # Create user
+            user = User(
+                username=request.form.get('username'),
+                email=request.form.get('email'),
+                first_name=request.form.get('first_name'),
+                last_name=request.form.get('last_name'),
+                role=UserRole[role_str],
+                branch_id=branch_id,
+                can_access_multiple_branches=bool(request.form.get('can_access_multiple_branches')) if current_user.role == UserRole.SUPER_USER else False
+            )
+            user.set_password(password)
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            success_msg = f'User "{user.username}" created successfully!'
+            if is_ajax:
+                return jsonify({'success': True, 'message': success_msg})
+            
+            flash(success_msg, 'success')
+            return redirect(url_for('admin.users'))
+            
+        except Exception as e:
+            db.session.rollback()
+            error_msg = f'Error creating user: {str(e)}'
+            if is_ajax:
+                return jsonify({'success': False, 'message': error_msg}), 500
+            flash(error_msg, 'error')
+    
+    # GET request - show form
+    from app.models import Branch
+    if current_user.role == UserRole.BRANCH_ADMIN:
+        branches = [current_user.branch] if current_user.branch else []
+    else:
+        branches = Branch.query.filter_by(is_active=True).all()
+    
+    return render_template('admin/add_user.html', branches=branches, roles=UserRole)
 
 @admin.route('/create_category', methods=['POST'])
 @login_required
@@ -462,10 +644,7 @@ def create_category():
             return jsonify({'success': False, 'message': 'Category name is required'}), 400
         
         # Check if category already exists in the same branch
-        existing_category = filter_by_user_branch(
-            Category.query.filter_by(name=data['name']), 
-            Category
-        ).first()
+        existing_category = Category.query.filter_by(name=data['name'], branch_id=current_user.branch_id).first()
         if existing_category:
             return jsonify({'success': False, 'message': 'Category already exists in this branch'}), 400
         
@@ -508,13 +687,13 @@ def create_menu_item():
             if not data.get(field):
                 return jsonify({'success': False, 'message': f'Missing required field: {field}'}), 400
         
-        # Check if menu item already exists in the same branch
-        existing_item = filter_by_user_branch(
-            MenuItem.query.filter_by(name=data['name']), 
-            MenuItem
+        # Check if menu item already exists in the same category
+        existing_item = MenuItem.query.filter_by(
+            name=data['name'], 
+            category_id=int(data['category_id'])
         ).first()
         if existing_item:
-            return jsonify({'success': False, 'message': 'Menu item already exists in this branch'}), 400
+            return jsonify({'success': False, 'message': 'Menu item already exists in this category'}), 400
         
         # Create new menu item with branch assignment
         menu_item = MenuItem(
@@ -572,6 +751,13 @@ def update_category(category_id):
         
         # Update category fields
         if 'name' in data:
+            # Check if new name already exists in the same branch (excluding current category)
+            existing_category = Category.query.filter_by(
+                name=data['name'], 
+                branch_id=current_user.branch_id
+            ).filter(Category.id != category_id).first()
+            if existing_category:
+                return jsonify({'success': False, 'message': 'Category name already exists in this branch'}), 400
             category.name = data['name']
         if 'description' in data:
             category.description = data['description']
@@ -637,13 +823,53 @@ def update_menu_item(item_id):
         # Find menu item
         menu_item = MenuItem.query.get_or_404(item_id)
         
+        # Store original values for synchronization
+        original_name = menu_item.name
+        original_price = menu_item.price
+        
         # Update menu item fields
         if 'name' in data:
-            menu_item.name = data['name']
+            new_name = data['name']
+            # Check if new name already exists in the same category (excluding current item)
+            existing_item = MenuItem.query.filter_by(
+                name=new_name, 
+                category_id=menu_item.category_id
+            ).filter(MenuItem.id != item_id).first()
+            if existing_item:
+                return jsonify({'success': False, 'message': 'Menu item already exists in this category'}), 400
+            
+            # If name is changing, update all items with the same original name to have the new name and current price
+            if new_name != original_name:
+                MenuItem.query.filter_by(
+                    name=original_name, 
+                    branch_id=current_user.branch_id
+                ).filter(MenuItem.id != item_id).update({
+                    'name': new_name,
+                    'price': original_price
+                })
+            
+            menu_item.name = new_name
         if 'category_id' in data:
-            menu_item.category_id = int(data['category_id'])
+            # Check if item name already exists in the new category
+            new_category_id = int(data['category_id'])
+            if new_category_id != menu_item.category_id:
+                existing_item = MenuItem.query.filter_by(
+                    name=menu_item.name, 
+                    category_id=new_category_id
+                ).first()
+                if existing_item:
+                    return jsonify({'success': False, 'message': 'Menu item already exists in the target category'}), 400
+            menu_item.category_id = new_category_id
         if 'price' in data:
-            menu_item.price = float(data['price'])
+            new_price = float(data['price'])
+            menu_item.price = new_price
+            
+            # Price synchronization: Update all items with the same name across all categories in the same branch
+            if new_price != original_price:
+                MenuItem.query.filter_by(
+                    name=original_name, 
+                    branch_id=current_user.branch_id
+                ).filter(MenuItem.id != item_id).update({'price': new_price})
         if 'description' in data:
             menu_item.description = data['description']
         if 'is_active' in data:
@@ -678,7 +904,11 @@ def update_menu_item(item_id):
                 'is_active': menu_item.is_active,
                 'image_url': menu_item.image_url,
                 'is_vegetarian': menu_item.is_vegetarian,
-                'is_vegan': menu_item.is_vegan
+                'is_vegan': menu_item.is_vegan,
+                'card_color': menu_item.card_color,
+                'size_flag': menu_item.size_flag,
+                'portion_type': menu_item.portion_type,
+                'visual_priority': menu_item.visual_priority
             }
         })
         
@@ -1246,10 +1476,27 @@ def cashier_performance():
         
         # Count only revenue from PAID orders
         paid_orders = [order for order in all_orders if hasattr(order, 'status') and order.status == OrderStatus.PAID]
-        total_sales = sum(order.total_amount for order in paid_orders)
+        order_revenue = sum(order.total_amount for order in paid_orders)
+        
+        # Get manual card payments for this cashier in the date range
+        manual_card_query = ManualCardPayment.query.filter_by(
+            cashier_id=cashier.id,
+            branch_id=current_user.branch_id
+        )
+        
+        if start_date and end_date:
+            manual_card_query = manual_card_query.filter(
+                ManualCardPayment.date >= start_date.date(),
+                ManualCardPayment.date <= end_date.date()
+            )
+        
+        manual_card_revenue = sum(payment.amount for payment in manual_card_query.all())
+        total_sales = order_revenue + manual_card_revenue
         
         # Convert to float to avoid decimal arithmetic issues
         total_sales = float(total_sales)
+        order_revenue = float(order_revenue)
+        manual_card_revenue = float(manual_card_revenue)
         
         # Get average order value based on PAID orders only
         if len(paid_orders) > 0:
@@ -1283,10 +1530,13 @@ def cashier_performance():
             'orders_count': orders_count,  # ALL orders (including waiter PENDING orders)
             'paid_orders_count': paid_orders_count,  # Only PAID orders
             'unpaid_orders_count': unpaid_orders_count,  # Only PENDING orders
-            'total_sales': total_sales,  # Revenue from PAID orders only
+            'total_sales': total_sales,  # Orders + Manual Card Payments
+            'order_revenue': order_revenue,  # Only from PAID orders
+            'manual_card_revenue': manual_card_revenue,  # Manual card payments
             'avg_order_value': avg_order_value,
             'login_count': login_count,
-            'efficiency_score': efficiency_score
+            'efficiency_score': efficiency_score,
+            'branch': cashier.branch
         })
     
     # Return JSON for AJAX requests
@@ -1303,6 +1553,8 @@ def cashier_performance():
                 'paid_orders_count': data['paid_orders_count'],
                 'unpaid_orders_count': data['unpaid_orders_count'],
                 'total_sales': data['total_sales'],
+                'order_revenue': data['order_revenue'],
+                'manual_card_revenue': data['manual_card_revenue'],
                 'avg_order_value': data['avg_order_value'],
                 'login_count': data['login_count'],
                 'efficiency_score': data['efficiency_score']
@@ -1902,7 +2154,13 @@ def reports():
 @admin.route('/api/reports/revenue-orders')
 @login_required
 def api_revenue_orders():
-    """API endpoint for revenue and orders data - branch-specific"""
+    """
+    API endpoint for revenue and orders data - branch-specific
+    
+    Manual Card Payment Integration:
+    - Included in: "Revenue & Orders Over Time" (service_type='all') and "Card Payments Analysis" (service_type='card')
+    - Excluded from: "Take Away Orders", "Delivery Orders", "On Table Orders" graphs
+    """
     if current_user.role not in [UserRole.BRANCH_ADMIN, UserRole.SUPER_USER]:
         return jsonify({'error': 'Access denied'}), 403
     
@@ -1958,7 +2216,8 @@ def api_revenue_orders():
             elif service_type == 'take_away':
                 query = query.filter(Order.service_type == ServiceType.TAKE_AWAY)
             elif service_type == 'card':
-                query = query.filter(Order.service_type == ServiceType.CARD)
+                # For card service type, we only want manual card payments, not orders
+                query = query.filter(Order.id == -1)  # This will return no orders
         
         # Apply delivery company filter
         if delivery_company_id and delivery_company_id != 'all':
@@ -1987,6 +2246,39 @@ def api_revenue_orders():
                 daily_data[date_key]['revenue'] += float(order.total_amount)
                 daily_data[date_key]['paid_orders'] += 1
                 total_paid_orders += 1
+        
+        # Add manual card payments to daily data ONLY for:
+        # 1. "Revenue & Orders Over Time" (service_type == 'all' or None)
+        # 2. "Card Payments Analysis" (service_type == 'card')
+        # DO NOT include for specific service types: delivery, take_away, on_table
+        if not service_type or service_type == 'all' or service_type == 'card':
+            manual_card_query = ManualCardPayment.query.filter(
+                ManualCardPayment.date >= start_date.date(),
+                ManualCardPayment.date <= end_date.date()
+            )
+            
+            # Apply branch filtering for manual card payments
+            if branch_id and branch_id != 'all' and current_user.is_super_user():
+                try:
+                    branch_id_int = int(branch_id)
+                    manual_card_query = manual_card_query.filter(ManualCardPayment.branch_id == branch_id_int)
+                except (ValueError, TypeError):
+                    pass
+            elif current_user.role == UserRole.BRANCH_ADMIN:
+                manual_card_query = manual_card_query.filter(ManualCardPayment.branch_id == current_user.branch_id)
+            
+            manual_card_payments = manual_card_query.all()
+            
+            for payment in manual_card_payments:
+                date_key = payment.date.strftime('%Y-%m-%d')
+                if date_key not in daily_data:
+                    daily_data[date_key] = {
+                        'revenue': 0,
+                        'orders': 0,
+                        'paid_orders': 0,
+                        'date': date_key
+                    }
+                daily_data[date_key]['revenue'] += float(payment.amount)
         
         # Convert to list and sort by date
         result = list(daily_data.values())
@@ -2463,3 +2755,161 @@ def verify_pin():
         })
 
 # Order editing PIN routes removed - functionality moved to admin settings page
+
+@admin.route('/api/reports/cash-per-date')
+@login_required
+def api_cash_per_date():
+    """API endpoint for cash per date data - branch-specific"""
+    if current_user.role not in [UserRole.BRANCH_ADMIN, UserRole.SUPER_USER]:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        # Get parameters
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        time_period = request.args.get('time_period')
+        service_type = request.args.get('service_type')
+        delivery_company_id = request.args.get('delivery_company_id')
+        
+        # Handle time period filtering
+        if time_period and time_period != 'custom':
+            days = int(time_period)
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=days)
+        elif date_from and date_to:
+            start_date = datetime.strptime(date_from, '%Y-%m-%d')
+            end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+        else:
+            # Default to last 7 days
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=7)
+        
+        # Build query for cash (order payments only) per date - branch-specific
+        from sqlalchemy import case
+        cash_per_date_query = db.session.query(
+            func.date(Order.created_at).label('date'),
+            func.sum(case((Order.status == OrderStatus.PAID, Order.total_amount), else_=0)).label('cash_amount')
+        ).filter(
+            Order.created_at >= start_date,
+            Order.created_at < end_date,
+            Order.branch_id == current_user.branch_id  # Branch filtering
+        )
+        
+        # Add service type filtering
+        if service_type and service_type != 'all':
+            from app.models import ServiceType
+            if service_type == 'on_table':
+                cash_per_date_query = cash_per_date_query.filter(Order.service_type == ServiceType.ON_TABLE)
+            elif service_type == 'take_away':
+                cash_per_date_query = cash_per_date_query.filter(Order.service_type == ServiceType.TAKE_AWAY)
+            elif service_type == 'delivery':
+                cash_per_date_query = cash_per_date_query.filter(Order.service_type == ServiceType.DELIVERY)
+        
+        # Add delivery company filtering
+        if delivery_company_id and delivery_company_id != 'all':
+            cash_per_date_query = cash_per_date_query.filter(Order.delivery_company_id == delivery_company_id)
+        
+        cash_per_date_query = cash_per_date_query.group_by(
+            func.date(Order.created_at)
+        ).order_by(
+            func.date(Order.created_at)
+        )
+        
+        cash_data = cash_per_date_query.all()
+        
+        # Format data for chart
+        result = {
+            'dates': [str(item.date) for item in cash_data],
+            'cash_amounts': [float(item.cash_amount or 0) for item in cash_data]
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@admin.route('/api/reports/peak-hours')
+@login_required
+def api_peak_hours():
+    """API endpoint for peak selling hours data - branch-specific"""
+    if current_user.role not in [UserRole.BRANCH_ADMIN, UserRole.SUPER_USER]:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        # Get parameters
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        time_period = request.args.get('time_period')
+        service_type = request.args.get('service_type')
+        delivery_company_id = request.args.get('delivery_company_id')
+        
+        # Handle time period filtering
+        if time_period and time_period != 'custom':
+            days = int(time_period)
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=days)
+        elif date_from and date_to:
+            start_date = datetime.strptime(date_from, '%Y-%m-%d')
+            end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+        else:
+            # Default to last 7 days
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=7)
+        
+        # Build query for hourly sales data - branch-specific
+        from sqlalchemy import case, extract
+        hourly_sales_query = db.session.query(
+            extract('hour', Order.created_at).label('hour'),
+            func.count(Order.id).label('order_count'),
+            func.sum(case((Order.status == OrderStatus.PAID, Order.total_amount), else_=0)).label('revenue')
+        ).filter(
+            Order.created_at >= start_date,
+            Order.created_at < end_date,
+            Order.branch_id == current_user.branch_id  # Branch filtering
+        )
+        
+        # Add service type filtering
+        if service_type and service_type != 'all':
+            from app.models import ServiceType
+            if service_type == 'on_table':
+                hourly_sales_query = hourly_sales_query.filter(Order.service_type == ServiceType.ON_TABLE)
+            elif service_type == 'take_away':
+                hourly_sales_query = hourly_sales_query.filter(Order.service_type == ServiceType.TAKE_AWAY)
+            elif service_type == 'delivery':
+                hourly_sales_query = hourly_sales_query.filter(Order.service_type == ServiceType.DELIVERY)
+        
+        # Add delivery company filtering
+        if delivery_company_id and delivery_company_id != 'all':
+            hourly_sales_query = hourly_sales_query.filter(Order.delivery_company_id == delivery_company_id)
+        
+        hourly_sales_query = hourly_sales_query.group_by(
+            extract('hour', Order.created_at)
+        ).order_by(
+            extract('hour', Order.created_at)
+        )
+        
+        hourly_data = hourly_sales_query.all()
+        
+        # Create 24-hour format with all hours (0-23)
+        hours = list(range(24))
+        order_counts = [0] * 24
+        revenues = [0] * 24
+        
+        # Fill in actual data
+        for item in hourly_data:
+            hour_index = int(item.hour)
+            if 0 <= hour_index <= 23:
+                order_counts[hour_index] = item.order_count
+                revenues[hour_index] = float(item.revenue or 0)
+        
+        # Format data for chart
+        result = {
+            'hours': [f"{hour:02d}:00" for hour in hours],
+            'order_counts': order_counts,
+            'revenues': revenues
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

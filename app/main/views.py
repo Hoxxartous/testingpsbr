@@ -13,6 +13,8 @@ def index():
                     return redirect(url_for('superuser.dashboard'))
                 elif current_user.role.name == 'BRANCH_ADMIN' or current_user.role.name == 'ADMIN':
                     return redirect(url_for('admin.dashboard'))
+                elif current_user.role.name == 'WAITER':
+                    return redirect(url_for('pos.table_management'))
                 else:
                     return redirect(url_for('pos.index'))
             else:

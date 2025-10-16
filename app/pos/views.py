@@ -7,6 +7,7 @@ from app.models import (
 )
 from app import db, socketio
 from app.auth.decorators import cashier_or_above_required, pos_access_required, filter_by_user_branch
+from app.auth.views import log_audit_action
 from datetime import datetime, timedelta
 import random
 import string
@@ -54,14 +55,14 @@ def on_join(data):
             join_room(branch_room)
             print(f"Waiter {current_user.get_full_name()} auto-joined branch room: {branch_room}")
     
-    elif current_user.role == UserRole.ADMIN:
+    elif current_user.role == UserRole.BRANCH_ADMIN:
         # Admins join branch room for their branch only
         branch_room = f'branch_{current_user.branch_id}'
         if room != branch_room:  # Avoid duplicate join
             join_room(branch_room)
             print(f"Admin {current_user.get_full_name()} auto-joined branch room: {branch_room}")
     
-    elif current_user.role == UserRole.SUPER_ADMIN:
+    elif current_user.role == UserRole.SUPER_USER:
         # Super admins can join a special room to see all branch activity if needed
         super_admin_room = 'super_admin'
         if room != super_admin_room:  # Avoid duplicate join
@@ -829,23 +830,6 @@ def daily_report():
         func.date(Order.created_at) == today
     ).scalar() or 0
     
-    # Get today's most popular items - Include both created and assigned orders
-    popular_items = db.session.query(
-        MenuItem.name,
-        func.sum(OrderItem.quantity).label('total_quantity'),
-        func.sum(OrderItem.total_price).label('total_revenue')
-    ).join(OrderItem, MenuItem.id == OrderItem.menu_item_id)\
-     .join(Order, OrderItem.order_id == Order.id)\
-     .filter(
-         db.or_(
-             Order.cashier_id == current_user.id,
-             Order.assigned_cashier_id == current_user.id
-         ),
-         func.date(Order.created_at) == today
-     )\
-     .group_by(MenuItem.id, MenuItem.name)\
-     .order_by(func.sum(OrderItem.quantity).desc())\
-     .limit(5).all()
     
     # Get waiter order statistics for today
     waiter_orders_today = Order.query.filter(
@@ -939,31 +923,6 @@ def daily_report():
     elements.append(today_table)
     elements.append(Spacer(1, 20))
     
-    # Today's Popular Items
-    if popular_items:
-        elements.append(Paragraph("🏆 Today's Top Selling Items", heading_style))
-        items_data = [['Item Name', 'Quantity Sold', 'Revenue (QAR)']]
-        
-        for item in popular_items:
-            items_data.append([
-                item.name,
-                str(item.total_quantity or 0),
-                f'{float(item.total_revenue or 0):.2f}'
-            ])
-        
-        items_table = ReportTable(items_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch])
-        items_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#27ae60')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), HexColor('#d5f4e6')),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        elements.append(items_table)
-        elements.append(Spacer(1, 20))
     
     # Waiter Orders Section
     if waiter_orders_today > 0:
@@ -2258,6 +2217,7 @@ def waiter_requests():
             orders_data.append({
                 'id': order.id,
                 'order_number': order.order_number,
+                'table_id': order.table_id,
                 'table_number': order.table.table_number if order.table else 'N/A',
                 'total_amount': float(order.total_amount),
                 'created_at': order.created_at.strftime('%Y-%m-%d %H:%M'),
@@ -2321,6 +2281,126 @@ def waiter_requests():
     
     # Render template for regular requests
     return render_template('pos/waiter_requests.html')
+
+@pos.route('/transfer_order', methods=['POST'])
+@login_required
+def transfer_order():
+    """Transfer an order from one table to another - cashiers only"""
+    if current_user.role not in [UserRole.CASHIER, UserRole.BRANCH_ADMIN, UserRole.SUPER_USER]:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+    
+    try:
+        data = request.get_json()
+        order_id = data.get('order_id')
+        new_table_id = data.get('new_table_id')
+        
+        if not order_id or not new_table_id:
+            return jsonify({'success': False, 'message': 'Order ID and new table ID are required'}), 400
+        
+        # Get the order
+        order = Order.query.get_or_404(order_id)
+        
+        # Check if cashier has access to this order
+        if current_user.role == UserRole.CASHIER and order.assigned_cashier_id != current_user.id:
+            return jsonify({'success': False, 'message': 'Access denied: Order not assigned to you'}), 403
+        
+        # Check branch access
+        if not current_user.is_super_user() and order.branch_id != current_user.branch_id:
+            return jsonify({'success': False, 'message': 'Access denied: Order not in your branch'}), 403
+        
+        # Get the new table
+        new_table = Table.query.get_or_404(new_table_id)
+        
+        # Check if new table is in the same branch
+        if not current_user.is_super_user() and new_table.branch_id != current_user.branch_id:
+            return jsonify({'success': False, 'message': 'Access denied: Target table not in your branch'}), 403
+        
+        # Store old table info for logging
+        old_table_id = order.table_id
+        old_table_number = order.table.table_number if order.table else 'No Table'
+        
+        # Update the order's table
+        order.table_id = new_table_id
+        
+        # Add transfer note to order notes
+        transfer_note = f' [TRANSFERRED from Table {old_table_number} to Table {new_table.table_number} by {current_user.get_full_name()}]'
+        if order.notes:
+            order.notes += transfer_note
+        else:
+            order.notes = transfer_note.strip()
+        
+        db.session.commit()
+        
+        # Log the transfer action
+        log_audit_action(
+            current_user.id, 
+            'order_transfer', 
+            f'Transferred order {order_id} from Table {old_table_number} to Table {new_table.table_number}'
+        )
+        
+        # Emit socket event for real-time updates to waiters
+        socketio.emit('order_transferred', {
+            'order_id': order_id,
+            'old_table_id': old_table_id,
+            'new_table_id': new_table_id,
+            'old_table_number': old_table_number,
+            'new_table_number': new_table.table_number,
+            'transferred_by': current_user.get_full_name(),
+            'message': f'Order transferred from Table {old_table_number} to Table {new_table.table_number}'
+        }, room='waiters')
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Order successfully transferred from Table {old_table_number} to Table {new_table.table_number}',
+            'old_table_number': old_table_number,
+            'new_table_number': new_table.table_number
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error transferring order: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@pos.route('/get_available_tables')
+@login_required
+def get_available_tables():
+    """Get list of available tables for order transfer"""
+    if current_user.role not in [UserRole.CASHIER, UserRole.BRANCH_ADMIN, UserRole.SUPER_USER]:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+    
+    try:
+        # Get tables based on user role
+        if current_user.is_super_user():
+            tables = Table.query.filter_by(is_active=True).order_by(Table.table_number).all()
+        else:
+            tables = Table.query.filter_by(
+                branch_id=current_user.branch_id,
+                is_active=True
+            ).order_by(Table.table_number).all()
+        
+        tables_data = []
+        for table in tables:
+            # Check if table is occupied (has pending orders)
+            is_occupied = Order.query.filter_by(
+                table_id=table.id,
+                status=OrderStatus.PENDING
+            ).first() is not None
+            
+            tables_data.append({
+                'id': table.id,
+                'number': table.table_number,
+                'capacity': table.capacity,
+                'is_occupied': is_occupied
+            })
+        
+        return jsonify({
+            'success': True,
+            'tables': tables_data
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting available tables: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @pos.route('/clear_waiter_requests', methods=['POST'])
 @login_required

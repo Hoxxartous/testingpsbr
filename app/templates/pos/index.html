@@ -517,24 +517,6 @@
                             </label>
                             <div class="row g-3">
                                 <div class="col-md-3 col-6">
-                                    <div class="service-option {% if current_user.role.value == 'cashier' %}disabled{% endif %}" data-service="on_table">
-                                        <div class="card h-100 border-2 service-card {% if current_user.role.value == 'cashier' %}disabled-card{% endif %}">
-                                            <div class="card-body text-center p-3">
-                                                <i class="bi bi-table display-6 text-primary mb-2"></i>
-                                                <h6 class="card-title mb-0">On Table</h6>
-                                                <small class="text-muted">Dine In</small>
-                                                {% if current_user.role.value == 'cashier' %}
-                                                    <div class="mt-1">
-                                                        <span class="badge bg-danger">
-                                                            <i class="bi bi-lock-fill"></i> Cashier Restricted
-                                                        </span>
-                                                    </div>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-3 col-6">
                                     <div class="service-option {% if current_user.role.value == 'waiter' %}disabled{% endif %}" data-service="take_away">
                                         <div class="card h-100 border-2 service-card {% if current_user.role.value == 'waiter' %}disabled-card{% endif %}">
                                             <div class="card-body text-center p-3">
@@ -4541,7 +4523,6 @@ function initializeServiceTypeSelection() {
             if (this.classList.contains('disabled')) {
                 // Show notification about restriction
                 const serviceNames = {
-                    'on_table': 'On Table',
                     'take_away': 'Take Away',
                     'delivery': 'Delivery',
                     'card': 'Card Payment'
@@ -4565,50 +4546,19 @@ function initializeServiceTypeSelection() {
             
             // Update display
             const serviceNames = {
-                'on_table': 'On Table',
                 'take_away': 'Take Away',
                 'delivery': 'Delivery'
             };
             document.getElementById('selectedServiceType').textContent = serviceNames[selectedServiceType];
             
-            // Show/hide table selection for on_table service
+            // Hide table selection since on_table service is removed
             const tableSection = document.getElementById('tableSelectionSection');
-            if (selectedServiceType === 'on_table') {
-                // If we have a pre-selected table, show it nicely instead of the selection grid
-                if (window.isPreSelectedTable && window.selectedTableId && window.selectedTableNumber) {
-                    tableSection.style.display = 'block';
-                    tableSection.innerHTML = `
-                        <div class="col-12">
-                            <div class="alert alert-success d-flex align-items-center">
-                                <i class="bi bi-table text-success me-3" style="font-size: 2rem;"></i>
-                                <div>
-                                    <h5 class="mb-1">Table ${window.selectedTableNumber} Selected</h5>
-                                    <small class="text-muted">Order will be assigned to this table</small>
-                                </div>
-                                <div class="ms-auto">
-                                    <button class="btn btn-outline-secondary btn-sm" onclick="changeTable()">
-                                        <i class="bi bi-pencil"></i> Change Table
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    tableSection.style.display = 'block';
-                    // Reset table selection when switching to on_table (only if not pre-selected)
-                    if (!window.isPreSelectedTable) {
-                        window.selectedTableId = null;
-                        window.selectedTableNumber = null;
-                        document.querySelectorAll('.table-btn-modal').forEach(btn => btn.classList.remove('selected'));
-                    }
-                }
-            } else {
-                tableSection.style.display = 'none';
-                // Clear table selection for non-table services (only if not pre-selected)
-                if (!window.isPreSelectedTable) {
-                    window.selectedTableId = null;
-                    window.selectedTableNumber = null;
-                }
+            tableSection.style.display = 'none';
+            // Clear table selection since on_table service is no longer available
+            if (!window.isPreSelectedTable) {
+                window.selectedTableId = null;
+                window.selectedTableNumber = null;
+                document.querySelectorAll('.table-option').forEach(opt => opt.classList.remove('selected'));
             }
             
             // Show/hide delivery company section
@@ -4682,9 +4632,6 @@ function updateConfirmButton() {
         if (selectedServiceType === 'delivery') {
             // For delivery: need delivery company
             isValid = selectedDeliveryCompanyId != null;
-        } else if (selectedServiceType === 'on_table') {
-            // For on table: need table selection
-            isValid = window.selectedTableId != null;
         } else {
             // For take_away and card: no additional requirements
             isValid = true;

@@ -278,6 +278,38 @@
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
+// Sound generation function for order transfer notifications
+function playTransferNotificationSound() {
+    try {
+        // Create audio context
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create oscillator for transfer notification (different tone)
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        // Connect nodes
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Set frequency for transfer sound (higher pitch)
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+        
+        // Set volume
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        // Play sound
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+        
+    } catch (error) {
+        console.log('Could not play transfer notification sound:', error);
+    }
+}
+
 // Sound generation function for order edit notifications
 function playOrderEditedSound() {
     // Create audio context
@@ -325,6 +357,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function setupSocketListeners() {
+    
+    // Join waiter room for real-time notifications
+    socket.emit('join_waiters');
+    
+    // Listen for order transfer notifications
+    socket.on('order_transferred', function(data) {
+        console.log('Order transferred:', data);
+        
+        // Play notification sound
+        playTransferNotificationSound();
+        
+        // Show notification
+        showNotification(
+            `🔄 Order transferred: ${data.message} by ${data.transferred_by}`,
+            'info'
+        );
+        
+        // Refresh tables to show updated order assignments
+        loadTables();
+    });
     
     // Join branch room for real-time updates
     socket.emit('join', {room: 'branch_{{ current_user.branch_id }}'});

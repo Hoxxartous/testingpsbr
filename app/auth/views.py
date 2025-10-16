@@ -70,6 +70,8 @@ def login():
                     return redirect(url_for('superuser.dashboard'))
                 elif user.role == UserRole.BRANCH_ADMIN:
                     return redirect(url_for('admin.dashboard'))
+                elif user.role == UserRole.WAITER:
+                    return redirect(url_for('pos.table_management'))
                 else:
                     return redirect(url_for('pos.index'))
             else:

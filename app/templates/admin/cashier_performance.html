@@ -59,7 +59,9 @@
                                 <th scope="col" data-sort="orders" class="text-center">Total Orders</th>
                                 <th scope="col" data-sort="paid" class="text-center">Paid Orders</th>
                                 <th scope="col" data-sort="unpaid" class="text-center">Unpaid Orders</th>
-                                <th scope="col" data-sort="sales" class="text-center">Sales (QAR)</th>
+                                <th scope="col" data-sort="sales" class="text-center">Total Sales (QAR)</th>
+                                <th scope="col" data-sort="cash" class="text-center">Cash (QAR)</th>
+                                <th scope="col" data-sort="card" class="text-center">Card (QAR)</th>
                                 <th scope="col" data-sort="avg" class="text-center">Avg Order</th>
                                 <th scope="col" data-sort="logins" class="text-center">Logins</th>
                                 <th scope="col" data-sort="efficiency" class="text-center">Efficiency</th>
@@ -86,7 +88,15 @@
                                 </td>
                                 <td class="text-center">
                                     <strong>{{ "%.2f"|format(data.total_sales) }}</strong>
-                                    <small class="text-muted d-block">From paid orders</small>
+                                    <small class="text-muted d-block">Orders + Cards</small>
+                                </td>
+                                <td class="text-center">
+                                    <strong class="text-primary">{{ "%.2f"|format(data.order_revenue) }}</strong>
+                                    <small class="text-muted d-block">Order payments</small>
+                                </td>
+                                <td class="text-center">
+                                    <strong class="text-success">{{ "%.2f"|format(data.manual_card_revenue) }}</strong>
+                                    <small class="text-muted d-block">Manual entries</small>
                                 </td>
                                 <td class="text-center">
                                     <strong>{{ "%.2f"|format(data.avg_order_value) }}</strong>

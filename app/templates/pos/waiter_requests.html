@@ -222,6 +222,50 @@
     </div>
 </div>
 
+<!-- Transfer Order Modal -->
+<div class="modal fade" id="transferOrderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-arrow-left-right me-2"></i>Transfer Order
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <p class="mb-2">Transfer order <strong id="transferOrderNumber"></strong></p>
+                    <p class="text-muted">From: <strong id="currentTableNumber"></strong></p>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="targetTableSelect" class="form-label fw-bold">Select Target Table:</label>
+                    <select class="form-select" id="targetTableSelect">
+                        <option value="">Choose a table...</option>
+                    </select>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    This will move the order to the selected table and notify waiters in real-time.
+                </div>
+                
+                <div class="text-center mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadAvailableTables()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Tables
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info" id="confirmTransferBtn" disabled>
+                    <i class="bi bi-arrow-left-right me-2"></i>Transfer Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block styles %}
@@ -537,7 +581,15 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Load initial orders
-    loadOrders(1);
+    loadOrders();
+    
+    // Transfer modal event listeners
+    document.getElementById('targetTableSelect').addEventListener('change', function() {
+        const confirmBtn = document.getElementById('confirmTransferBtn');
+        confirmBtn.disabled = !this.value;
+    });
+    
+    document.getElementById('confirmTransferBtn').addEventListener('click', transferOrder);
     
     // Event listeners
     document.getElementById('sortBySelect').addEventListener('change', function() {
@@ -701,6 +753,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <i class="bi bi-check-circle"></i> Mark Paid
             </button>` : '';
         
+        const transferButton = order.table_id ? 
+            `<button class="btn btn-info btn-sm transfer-order-btn" data-order-id="${order.id}" data-current-table="${order.table_number}" title="Transfer to Another Table">
+                <i class="bi bi-arrow-left-right"></i> Transfer
+            </button>` : '';
+        
         col.innerHTML = `
             <div class="card order-card ${statusClass} shadow-sm" data-order-id="${order.id}">
                 <div class="card-body">
@@ -745,6 +802,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <i class="bi bi-eye"></i> View
                         </button>
                         ${editButton}
+                        ${transferButton}
                         ${markPaidButton}
                     </div>
                 </div>
@@ -768,6 +826,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (markPaidBtn) {
             markPaidBtn.addEventListener('click', function() {
                 markOrderAsPaid(order.id);
+            });
+        }
+        
+        // Transfer button event listener
+        const transferBtn = col.querySelector('.transfer-order-btn');
+        if (transferBtn) {
+            transferBtn.addEventListener('click', function() {
+                openTransferModal(order.id, order.order_number, order.table_number);
             });
         }
         
@@ -1263,6 +1329,147 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             orderCard.classList.remove('new-order');
         }, 500);
+    }
+    
+    // Transfer Order Functions
+    let currentTransferOrderId = null;
+    
+    function openTransferModal(orderId, orderNumber, currentTable) {
+        currentTransferOrderId = orderId;
+        document.getElementById('transferOrderNumber').textContent = '#' + orderNumber;
+        document.getElementById('currentTableNumber').textContent = 'Table ' + currentTable;
+        
+        // Load available tables
+        loadAvailableTables();
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('transferOrderModal'));
+        modal.show();
+    }
+    
+    function loadAvailableTables() {
+        console.log('Loading available tables...');
+        fetch('/pos/get_available_tables')
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Tables data received:', data);
+            if (data.success) {
+                const select = document.getElementById('targetTableSelect');
+                select.innerHTML = '<option value="">Choose a table...</option>';
+                
+                console.log('Number of tables:', data.tables.length);
+                
+                if (data.tables.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No tables available - Please create tables in Admin menu first';
+                    option.disabled = true;
+                    select.appendChild(option);
+                    showNotification('No tables found. Please create tables in the Admin menu first.', 'warning');
+                } else {
+                    data.tables.forEach(table => {
+                        const option = document.createElement('option');
+                        option.value = table.id;
+                        option.textContent = `Table ${table.number} (${table.capacity} seats) ${table.is_occupied ? '- Occupied' : '- Available'}`;
+                        select.appendChild(option);
+                        console.log('Added table option:', option.textContent);
+                    });
+                }
+            } else {
+                console.error('Error in response:', data.message);
+                showNotification('Error loading tables: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Network error:', error);
+            showNotification('Network error loading tables', 'error');
+        });
+    }
+    
+    function transferOrder() {
+        const targetTableId = document.getElementById('targetTableSelect').value;
+        
+        if (!targetTableId) {
+            showNotification('Please select a target table', 'warning');
+            return;
+        }
+        
+        const confirmBtn = document.getElementById('confirmTransferBtn');
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Transferring...';
+        
+        fetch('/pos/transfer_order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                order_id: currentTransferOrderId,
+                new_table_id: targetTableId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('transferOrderModal'));
+                modal.hide();
+                
+                // Update the order card's table information without full reload
+                updateOrderTableInfo(currentTransferOrderId, data.new_table_number);
+                
+                // Also refresh orders to ensure consistency
+                loadOrders();
+            } else {
+                showNotification('Transfer failed: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Transfer failed: Network error', 'error');
+        })
+        .finally(() => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="bi bi-arrow-left-right me-2"></i>Transfer Order';
+        });
+    }
+    
+    // Function to update order table info after transfer
+    function updateOrderTableInfo(orderId, newTableNumber) {
+        try {
+            // Find the order card by order ID
+            const orderCard = document.querySelector(`[data-order-id="${orderId}"]`);
+            if (orderCard) {
+                // Update table information in the order card
+                const tableElement = orderCard.querySelector('.table-info, .order-table');
+                if (tableElement) {
+                    tableElement.textContent = `Table ${newTableNumber}`;
+                }
+                
+                // Update any table number displays
+                const tableSpans = orderCard.querySelectorAll('.table-number, .table-display');
+                tableSpans.forEach(span => {
+                    span.textContent = `Table ${newTableNumber}`;
+                });
+                
+                // Add a visual indicator that the order was transferred
+                orderCard.classList.add('border-info');
+                setTimeout(() => {
+                    orderCard.classList.remove('border-info');
+                }, 3000);
+                
+                console.log(`Updated order ${orderId} table info to ${newTableNumber}`);
+            } else {
+                console.log(`Order card not found for order ID: ${orderId}`);
+            }
+        } catch (error) {
+            console.error('Error updating order table info:', error);
+        }
     }
     
     // Function to show notifications

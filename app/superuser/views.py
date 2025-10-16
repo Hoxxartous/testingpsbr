@@ -184,6 +184,10 @@ def dashboard():
             'branch_code': cashier.branch_code or 'N/A'
         })
     
+    # Calculate cash payments (Order Revenue Only - NOT total revenue which includes cards)
+    cash_total_today = today_revenue  # This is order revenue only (cash payments)
+    cash_total_all_time = total_revenue_all_time  # This is order revenue only (cash payments)
+    
     return render_template('superuser/dashboard.html',
                          total_branches=total_branches,
                          total_users=total_users,
@@ -201,7 +205,9 @@ def dashboard():
                          total_edited_orders=total_edited_orders,
                          top_editing_cashiers=top_editing_cashiers,
                          manual_card_total_today=manual_card_total_today,
-                         manual_card_total_all_time=manual_card_total_all_time)
+                         manual_card_total_all_time=manual_card_total_all_time,
+                         cash_total_today=cash_total_today,
+                         cash_total_all_time=cash_total_all_time)
 
 @superuser.route('/branches')
 def branches():
@@ -467,7 +473,9 @@ def users():
                          branches=branches,
                          current_branch=branch_id,
                          current_role=role,
-                         current_status=status)
+                         current_status=status,
+                         can_manage_users=True,
+                         can_view_only=False)
 
 @superuser.route('/users/add', methods=['GET', 'POST'])
 def add_user():
@@ -493,6 +501,16 @@ def add_user():
             existing_user = User.query.filter_by(username=request.form.get('username')).first()
             if existing_user:
                 error_msg = 'Username already exists!'
+                if is_ajax:
+                    return jsonify({'success': False, 'message': error_msg}), 400
+                flash(error_msg, 'error')
+                branches = Branch.query.filter_by(is_active=True).all()
+                return render_template('superuser/add_user.html', branches=branches, roles=UserRole)
+            
+            # Check if email already exists
+            existing_email = User.query.filter_by(email=request.form.get('email')).first()
+            if existing_email:
+                error_msg = 'Email already exists!'
                 if is_ajax:
                     return jsonify({'success': False, 'message': error_msg}), 400
                 flash(error_msg, 'error')
@@ -999,10 +1017,30 @@ def cashier_performance():
         
         # Count only revenue from PAID orders
         paid_orders = [order for order in all_orders if hasattr(order, 'status') and order.status == OrderStatus.PAID]
-        total_revenue = sum(order.total_amount for order in paid_orders)
+        order_revenue = sum(order.total_amount for order in paid_orders)
         
-        # Calculate average based on PAID orders only
-        avg_order_value = total_revenue / len(paid_orders) if len(paid_orders) > 0 else 0
+        # Add manual card payments for this cashier in the date range
+        manual_card_query = ManualCardPayment.query.filter_by(cashier_id=cashier.id)
+        
+        if date_from:
+            try:
+                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+                manual_card_query = manual_card_query.filter(ManualCardPayment.date >= date_from_obj)
+            except ValueError:
+                pass
+        
+        if date_to:
+            try:
+                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+                manual_card_query = manual_card_query.filter(ManualCardPayment.date <= date_to_obj)
+            except ValueError:
+                pass
+        
+        manual_card_revenue = sum(payment.amount for payment in manual_card_query.all())
+        total_revenue = order_revenue + manual_card_revenue
+        
+        # Calculate average based on PAID orders only (manual card payments are separate)
+        avg_order_value = order_revenue / len(paid_orders) if len(paid_orders) > 0 else 0
         
         # Calculate login count based on date range
         login_query = CashierSession.query.filter_by(cashier_id=cashier.id)
@@ -1031,7 +1069,9 @@ def cashier_performance():
             'orders_count': total_orders,  # ALL orders (including waiter PENDING orders)
             'paid_orders_count': len(paid_orders),  # Only PAID orders
             'unpaid_orders_count': len(unpaid_orders),  # Only PENDING orders
-            'total_sales': total_revenue,  # Only from PAID orders
+            'total_sales': total_revenue,  # Orders + Manual Card Payments
+            'order_revenue': order_revenue,  # Only from PAID orders
+            'manual_card_revenue': manual_card_revenue,  # Manual card payments
             'avg_order_value': avg_order_value,  # Based on PAID orders only
             'login_count': login_count,  # Real login count from CashierSession
             'efficiency_score': min(100, (total_orders * 10) if total_orders > 0 else 0),  # Based on ALL orders
@@ -1088,13 +1128,21 @@ def reports():
     
     # Revenue only from PAID orders
     paid_orders_query = base_query.filter(Order.status == OrderStatus.PAID)
-    total_revenue_query = db.session.query(func.sum(Order.total_amount)).filter(Order.status == OrderStatus.PAID)
+    order_revenue_query = db.session.query(func.sum(Order.total_amount)).filter(Order.status == OrderStatus.PAID)
     if branch_id:
-        total_revenue_query = total_revenue_query.filter(Order.branch_id == branch_id)
-    total_revenue = total_revenue_query.scalar() or 0
+        order_revenue_query = order_revenue_query.filter(Order.branch_id == branch_id)
+    order_revenue = order_revenue_query.scalar() or 0
     
-    # Average order value - calculated from PAID orders only
-    avg_order_value = (total_revenue / total_paid_orders) if total_paid_orders > 0 else 0
+    # Add manual card payments
+    manual_card_query = db.session.query(func.sum(ManualCardPayment.amount))
+    if branch_id:
+        manual_card_query = manual_card_query.filter(ManualCardPayment.branch_id == branch_id)
+    manual_card_revenue = manual_card_query.scalar() or 0
+    
+    total_revenue = order_revenue + manual_card_revenue
+    
+    # Average order value - calculated from PAID orders only (excluding manual card payments)
+    avg_order_value = (order_revenue / total_paid_orders) if total_paid_orders > 0 else 0
     
     # Today's statistics - separate paid and unpaid
     today = datetime.utcnow().date()
@@ -1104,13 +1152,23 @@ def reports():
     today_unpaid_orders = today_query.filter(Order.status == OrderStatus.PENDING).count()
     
     # Today's revenue only from PAID orders
-    today_revenue_query = db.session.query(func.sum(Order.total_amount)).filter(
+    today_order_revenue_query = db.session.query(func.sum(Order.total_amount)).filter(
         func.date(Order.created_at) == today,
         Order.status == OrderStatus.PAID
     )
     if branch_id:
-        today_revenue_query = today_revenue_query.filter(Order.branch_id == branch_id)
-    today_revenue = today_revenue_query.scalar() or 0
+        today_order_revenue_query = today_order_revenue_query.filter(Order.branch_id == branch_id)
+    today_order_revenue = today_order_revenue_query.scalar() or 0
+    
+    # Add today's manual card payments
+    today_manual_card_query = db.session.query(func.sum(ManualCardPayment.amount)).filter(
+        ManualCardPayment.date == today
+    )
+    if branch_id:
+        today_manual_card_query = today_manual_card_query.filter(ManualCardPayment.branch_id == branch_id)
+    today_manual_card_revenue = today_manual_card_query.scalar() or 0
+    
+    today_revenue = today_order_revenue + today_manual_card_revenue
     
     # Branch performance comparison - separate total orders and paid revenue
     from sqlalchemy import case
@@ -1209,11 +1267,15 @@ def reports():
                          total_paid_orders=total_paid_orders,
                          total_unpaid_orders=total_unpaid_orders,
                          total_revenue=total_revenue,
+                         order_revenue=order_revenue,
+                         manual_card_revenue=manual_card_revenue,
                          avg_order_value=avg_order_value,
                          today_orders=today_orders,
                          today_paid_orders=today_paid_orders,
                          today_unpaid_orders=today_unpaid_orders,
                          today_revenue=today_revenue,
+                         today_order_revenue=today_order_revenue,
+                         today_manual_card_revenue=today_manual_card_revenue,
                          branch_performance=branch_performance,
                         daily_sales=daily_sales,
                         top_items=top_items,
@@ -1431,3 +1493,169 @@ def reset_branch_counter(branch_id):
             'success': False,
             'message': f'Error resetting counter: {str(e)}'
         }), 500
+
+@superuser.route('/api/reports/cash-per-date')
+@login_required
+def api_cash_per_date():
+    """API endpoint for cash per date data - all branches or branch-specific"""
+    if current_user.role != UserRole.SUPER_USER:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        # Get parameters
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        branch_id = request.args.get('branch_id', type=int)
+        time_period = request.args.get('time_period')
+        service_type = request.args.get('service_type')
+        delivery_company_id = request.args.get('delivery_company_id')
+        
+        # Handle time period filtering
+        if time_period and time_period != 'custom':
+            days = int(time_period)
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=days)
+        elif date_from and date_to:
+            start_date = datetime.strptime(date_from, '%Y-%m-%d')
+            end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+        else:
+            # Default to last 7 days
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=7)
+        
+        # Build query for cash (order payments only) per date
+        from sqlalchemy import case
+        cash_per_date_query = db.session.query(
+            func.date(Order.created_at).label('date'),
+            func.sum(case((Order.status == OrderStatus.PAID, Order.total_amount), else_=0)).label('cash_amount')
+        ).filter(
+            Order.created_at >= start_date,
+            Order.created_at < end_date
+        )
+        
+        # Apply branch filtering if specified
+        if branch_id:
+            cash_per_date_query = cash_per_date_query.filter(Order.branch_id == branch_id)
+        
+        # Add service type filtering
+        if service_type and service_type != 'all':
+            from app.models import ServiceType
+            if service_type == 'on_table':
+                cash_per_date_query = cash_per_date_query.filter(Order.service_type == ServiceType.ON_TABLE)
+            elif service_type == 'take_away':
+                cash_per_date_query = cash_per_date_query.filter(Order.service_type == ServiceType.TAKE_AWAY)
+            elif service_type == 'delivery':
+                cash_per_date_query = cash_per_date_query.filter(Order.service_type == ServiceType.DELIVERY)
+        
+        # Add delivery company filtering
+        if delivery_company_id and delivery_company_id != 'all':
+            cash_per_date_query = cash_per_date_query.filter(Order.delivery_company_id == delivery_company_id)
+        
+        cash_per_date_query = cash_per_date_query.group_by(
+            func.date(Order.created_at)
+        ).order_by(
+            func.date(Order.created_at)
+        )
+        
+        cash_data = cash_per_date_query.all()
+        
+        # Format data for chart
+        result = {
+            'dates': [str(item.date) for item in cash_data],
+            'cash_amounts': [float(item.cash_amount or 0) for item in cash_data]
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@superuser.route('/api/reports/peak-hours')
+@login_required
+def api_peak_hours():
+    """API endpoint for peak selling hours data - all branches or branch-specific"""
+    if current_user.role != UserRole.SUPER_USER:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    try:
+        # Get parameters
+        date_from = request.args.get('date_from')
+        date_to = request.args.get('date_to')
+        branch_id = request.args.get('branch_id', type=int)
+        time_period = request.args.get('time_period')
+        service_type = request.args.get('service_type')
+        delivery_company_id = request.args.get('delivery_company_id')
+        
+        # Handle time period filtering
+        if time_period and time_period != 'custom':
+            days = int(time_period)
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=days)
+        elif date_from and date_to:
+            start_date = datetime.strptime(date_from, '%Y-%m-%d')
+            end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+        else:
+            # Default to last 7 days
+            end_date = datetime.utcnow()
+            start_date = end_date - timedelta(days=7)
+        
+        # Build query for hourly sales data
+        from sqlalchemy import case, extract
+        hourly_sales_query = db.session.query(
+            extract('hour', Order.created_at).label('hour'),
+            func.count(Order.id).label('order_count'),
+            func.sum(case((Order.status == OrderStatus.PAID, Order.total_amount), else_=0)).label('revenue')
+        ).filter(
+            Order.created_at >= start_date,
+            Order.created_at < end_date
+        )
+        
+        # Apply branch filtering if specified
+        if branch_id:
+            hourly_sales_query = hourly_sales_query.filter(Order.branch_id == branch_id)
+        
+        # Add service type filtering
+        if service_type and service_type != 'all':
+            from app.models import ServiceType
+            if service_type == 'on_table':
+                hourly_sales_query = hourly_sales_query.filter(Order.service_type == ServiceType.ON_TABLE)
+            elif service_type == 'take_away':
+                hourly_sales_query = hourly_sales_query.filter(Order.service_type == ServiceType.TAKE_AWAY)
+            elif service_type == 'delivery':
+                hourly_sales_query = hourly_sales_query.filter(Order.service_type == ServiceType.DELIVERY)
+        
+        # Add delivery company filtering
+        if delivery_company_id and delivery_company_id != 'all':
+            hourly_sales_query = hourly_sales_query.filter(Order.delivery_company_id == delivery_company_id)
+        
+        hourly_sales_query = hourly_sales_query.group_by(
+            extract('hour', Order.created_at)
+        ).order_by(
+            extract('hour', Order.created_at)
+        )
+        
+        hourly_data = hourly_sales_query.all()
+        
+        # Create 24-hour format with all hours (0-23)
+        hours = list(range(24))
+        order_counts = [0] * 24
+        revenues = [0] * 24
+        
+        # Fill in actual data
+        for item in hourly_data:
+            hour_index = int(item.hour)
+            if 0 <= hour_index <= 23:
+                order_counts[hour_index] = item.order_count
+                revenues[hour_index] = float(item.revenue or 0)
+        
+        # Format data for chart
+        result = {
+            'hours': [f"{hour:02d}:00" for hour in hours],
+            'order_counts': order_counts,
+            'revenues': revenues
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

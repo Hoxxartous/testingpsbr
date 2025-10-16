@@ -60,7 +60,7 @@
                     <div>
                         <h5 class="card-title">Total Revenue</h5>
                         <h2>{{ "%.0f"|format(total_revenue) }} QAR</h2>
-                        <small class="text-light">From Paid Orders Only</small>
+                        <small class="text-light">Orders + Card Payments</small>
                     </div>
                     <i class="bi bi-currency-dollar" style="font-size: 3rem;"></i>
                 </div>
@@ -76,9 +76,76 @@
                     <div>
                         <h5 class="card-title">Today's Sales</h5>
                         <h2>{{ "%.2f"|format(today_sales) }} QAR</h2>
-                        <small class="text-light">From Paid Orders Only</small>
+                        <small class="text-light">Orders + Card Payments</small>
                     </div>
                     <i class="bi bi-currency-dollar" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.dashboard') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cash and Card Payment Breakdown -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Cash</h5>
+                        <h2>{{ "%.0f"|format(total_cash_amount) }} QAR</h2>
+                        <small class="text-light">From Order Payments</small>
+                    </div>
+                    <i class="bi bi-cash-stack" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.dashboard') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Card</h5>
+                        <h2>{{ "%.0f"|format(manual_card_total_all_time) }} QAR</h2>
+                        <small class="text-light">Manual Card Entries</small>
+                    </div>
+                    <i class="bi bi-credit-card" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.dashboard') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Today's Cash</h5>
+                        <h2>{{ "%.2f"|format(today_cash_amount) }} QAR</h2>
+                        <small class="text-dark">From Order Payments</small>
+                    </div>
+                    <i class="bi bi-cash-stack" style="font-size: 3rem;"></i>
+                </div>
+                <a href="{{ url_for('admin.dashboard') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Today's Card</h5>
+                        <h2>{{ "%.2f"|format(manual_card_total_today) }} QAR</h2>
+                        <small class="text-light">Manual Card Entries</small>
+                    </div>
+                    <i class="bi bi-credit-card" style="font-size: 3rem;"></i>
                 </div>
                 <a href="{{ url_for('admin.dashboard') }}" class="stretched-link"></a>
             </div>
